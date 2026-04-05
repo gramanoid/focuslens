@@ -1,0 +1,12 @@
+.DS_Store
+.codex/
+.memory/
+.build/
+.swiftpm/
+openspec/
+Packages/
+DerivedData/
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+FocusLens.xcodeproj/project.xcworkspace/xcuserdata/

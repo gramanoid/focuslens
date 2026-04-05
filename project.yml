@@ -1,0 +1,37 @@
+name: FocusLens
+options:
+  minimumXcodeGenVersion: 2.45.3
+  developmentLanguage: en
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: com.alexgrama.FocusLens
+    PRODUCT_NAME: FocusLens
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 1.0
+    SWIFT_VERSION: 5.9
+    MACOSX_DEPLOYMENT_TARGET: 13.0
+    CODE_SIGN_STYLE: Automatic
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift.git
+    exactVersion: 7.8.0
+targets:
+  FocusLens:
+    type: application
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      - path: FocusLens
+        excludes:
+          - Resources/Info.plist
+    info:
+      path: FocusLens/Resources/Info.plist
+    dependencies:
+      - package: GRDB
+        product: GRDB
+    settings:
+      base:
+        INFOPLIST_FILE: FocusLens/Resources/Info.plist
+        ENABLE_HARDENED_RUNTIME: YES
+        GENERATE_INFOPLIST_FILE: NO
