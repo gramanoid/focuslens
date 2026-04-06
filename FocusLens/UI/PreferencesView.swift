@@ -49,8 +49,8 @@ struct PreferencesView: View {
                     tint: appState.serverReachable ? DS.Accent.primary : DS.Accent.warning
                 )
                 preferenceStatusChip(
-                    title: appState.keystrokeMonitor.isMonitoring ? "Keystrokes active" : "Keystrokes off",
-                    tint: appState.keystrokeMonitor.isMonitoring ? DS.Accent.primary : .secondary
+                    title: keystrokeChipTitle,
+                    tint: keystrokeChipTint
                 )
                 preferenceStatusChip(
                     title: appState.launchAtLogin ? "Starts at login" : "Manual launch",
@@ -330,6 +330,15 @@ struct PreferencesView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(DS.Accent.primary)
+            } else if appState.serverReachable {
+                // Server is reachable — show Stop only if we manage the process
+                if appState.serverProcess.status.isActive {
+                    Button("Stop Server") {
+                        appState.stopServer()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                // If server is reachable but externally managed, show nothing
             } else if appState.serverProcess.status.isActive {
                 Button("Stop Server") {
                     appState.stopServer()
@@ -412,6 +421,19 @@ struct PreferencesView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
+    }
+
+    private var keystrokeChipTitle: String {
+        if appState.keystrokeMonitor.isMonitoring { return "Keystrokes active" }
+        if appState.keystrokeTrackingEnabled && !appState.accessibilityPermissionGranted { return "Keystrokes need permission" }
+        if !appState.keystrokeTrackingEnabled { return "Keystrokes disabled" }
+        return "Keystrokes off"
+    }
+
+    private var keystrokeChipTint: Color {
+        if appState.keystrokeMonitor.isMonitoring { return DS.Accent.primary }
+        if appState.keystrokeTrackingEnabled && !appState.accessibilityPermissionGranted { return DS.Accent.warning }
+        return .secondary
     }
 
     private func preferenceStatusChip(title: String, tint: Color) -> some View {

@@ -128,16 +128,6 @@ struct MenuBarPopover: View {
                 )
 
                 SetupStepRow(
-                    title: "Allow Accessibility (Keystrokes)",
-                    detail: "Records what you type alongside screenshots for richer analysis. Password fields are automatically skipped.",
-                    state: appState.accessibilityPermissionGranted ? .complete("Allowed") : .action("Grant access"),
-                    action: {
-                        if appState.accessibilityPermissionGranted { return }
-                        appState.requestAccessibilityPermission()
-                    }
-                )
-
-                SetupStepRow(
                     title: "Connect your local model",
                     detail: modelSetupDetail,
                     state: modelSetupState,

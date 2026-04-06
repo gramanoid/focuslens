@@ -157,15 +157,15 @@ final class AppState: ObservableObject {
     }
 
     var setupCompletedSteps: Int {
-        [screenPermissionGranted, accessibilityPermissionGranted, serverReachable, hasCapturedSessions].filter { $0 }.count
+        [screenPermissionGranted, serverReachable, hasCapturedSessions].filter { $0 }.count
     }
 
     var setupProgress: Double {
-        Double(setupCompletedSteps) / 4.0
+        Double(setupCompletedSteps) / 3.0
     }
 
     var needsOnboarding: Bool {
-        !screenPermissionGranted || !accessibilityPermissionGranted || !serverReachable || !hasCapturedSessions
+        !screenPermissionGranted || !serverReachable || !hasCapturedSessions
     }
 
     var isReadyForImmediateCapture: Bool {
