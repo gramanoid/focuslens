@@ -12,8 +12,13 @@ enum ImageHelpers {
         return baseDirectory.appendingPathComponent("FocusLens", isDirectory: true)
     }
 
-    static func screenshotsDirectory() throws -> URL {
-        let directory = try applicationSupportDirectory().appendingPathComponent("screenshots", isDirectory: true)
+    static func screenshotsDirectory(customPath: String? = nil) throws -> URL {
+        let directory: URL
+        if let customPath, !customPath.isEmpty {
+            directory = URL(fileURLWithPath: (customPath as NSString).expandingTildeInPath)
+        } else {
+            directory = try applicationSupportDirectory().appendingPathComponent("screenshots", isDirectory: true)
+        }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)
         return directory
     }
@@ -23,7 +28,8 @@ enum ImageHelpers {
         return bitmap.representation(using: .png, properties: [:])
     }
 
-    static func resizedPNGData(from cgImage: CGImage, maxDimension: CGFloat = 512) -> Data? {
+    // Desktop screenshots contain small UI text, so OCR quality drops sharply at tiny sizes.
+    static func resizedPNGData(from cgImage: CGImage, maxDimension: CGFloat = 1024) -> Data? {
         let width = CGFloat(cgImage.width)
         let height = CGFloat(cgImage.height)
         let scale = min(1, maxDimension / max(width, height))
@@ -58,5 +64,34 @@ enum ImageHelpers {
     static func image(from path: String?) -> NSImage? {
         guard let path else { return nil }
         return NSImage(contentsOfFile: path)
+    }
+
+    /// Returns true if the image is predominantly black/blank (> 95% near-black pixels).
+    /// Communication apps like Telegram and WhatsApp often render as solid black
+    /// due to macOS window sharing restrictions.
+    static func isBlankCapture(_ cgImage: CGImage, threshold: Double = 0.95) -> Bool {
+        let sampleSize = 64
+        guard let context = CGContext(
+            data: nil,
+            width: sampleSize,
+            height: sampleSize,
+            bitsPerComponent: 8,
+            bytesPerRow: sampleSize * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return false }
+
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: sampleSize, height: sampleSize))
+        guard let data = context.data else { return false }
+
+        let pixels = data.assumingMemoryBound(to: UInt8.self)
+        let totalPixels = sampleSize * sampleSize
+        var darkPixels = 0
+        for i in 0..<totalPixels {
+            let offset = i * 4
+            let brightness = Int(pixels[offset]) + Int(pixels[offset + 1]) + Int(pixels[offset + 2])
+            if brightness < 30 { darkPixels += 1 }
+        }
+        return Double(darkPixels) / Double(totalPixels) > threshold
     }
 }

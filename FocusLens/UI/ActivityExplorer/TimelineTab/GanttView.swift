@@ -12,20 +12,21 @@ struct GanttView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 ForEach(rows, id: \.0) { row in
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                         Text(row.0)
                             .font(.headline)
                         GeometryReader { proxy in
                             ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(.white.opacity(0.04))
+                                RoundedRectangle(cornerRadius: DS.Radius.md)
+                                    .fill(DS.Surface.inset)
                                 ForEach(row.1, id: \.id) { block in
                                     let frame = frameForBlock(block, width: proxy.size.width)
                                     RoundedRectangle(cornerRadius: 10)
                                         .fill(block.category.color.gradient)
                                         .frame(width: frame.width, height: 28)
                                         .offset(x: frame.minX, y: 6)
-                                        .help("\(block.app)\n\(block.task)\n\(AnalysisAggregator.format(duration: block.duration))")
+                                        .accessibilityLabel("\(block.app), \(block.task), \(AnalysisAggregator.format(duration: block.duration))")
+                                        .help("\(block.app) — \(block.task) — \(AnalysisAggregator.format(duration: block.duration))")
                                 }
                             }
                         }

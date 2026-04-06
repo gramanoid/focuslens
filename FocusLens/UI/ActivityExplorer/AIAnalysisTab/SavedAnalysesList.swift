@@ -6,19 +6,24 @@ struct SavedAnalysesList: View {
     let onDelete: (AnalysisRecord) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
             Text("Saved Analyses")
                 .font(.headline)
 
             if analyses.isEmpty {
-                Text("No saved analyses yet.")
-                    .foregroundStyle(.secondary)
+                HStack(spacing: DS.Spacing.sm) {
+                    Image(systemName: "archivebox")
+                        .foregroundStyle(.tertiary)
+                    Text("Generated analyses are saved here automatically.")
+                        .foregroundStyle(.secondary)
+                }
+                .font(.caption)
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 10) {
+                    LazyVStack(spacing: DS.Spacing.smMd) {
                         ForEach(analyses) { analysis in
                             HStack(alignment: .top) {
-                                VStack(alignment: .leading, spacing: 4) {
+                                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                                     Text(analysis.type.rawValue)
                                         .font(.subheadline.weight(.semibold))
                                     Text(analysis.timestamp.formatted(date: .abbreviated, time: .shortened))
@@ -33,8 +38,8 @@ struct SavedAnalysesList: View {
                                     onDelete(analysis)
                                 }
                             }
-                            .padding(14)
-                            .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 16))
+                            .padding(DS.Spacing.lg)
+                            .background(DS.Surface.card, in: RoundedRectangle(cornerRadius: DS.Radius.md))
                         }
                     }
                 }

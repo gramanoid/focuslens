@@ -6,6 +6,7 @@ struct SessionCard: View {
     let connectsToNext: Bool
 
     @State private var expanded = false
+    @State private var thumbnailHovered = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
@@ -24,25 +25,25 @@ struct SessionCard: View {
             }
             .padding(.top, 8)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: DS.Spacing.smMd) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("\(block.start.formatted(date: .omitted, time: .shortened)) → \(block.end.formatted(date: .omitted, time: .shortened))")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.tertiary)
 
-                        HStack(spacing: 10) {
+                        HStack(spacing: DS.Spacing.smMd) {
                             Image(nsImage: AppIconResolver.icon(for: block.bundleID))
                                 .resizable()
-                                .frame(width: 28, height: 28)
-                                .clipShape(RoundedRectangle(cornerRadius: 7))
+                                .frame(width: 32, height: 32)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
                             Text(block.app)
-                                .font(.headline)
+                                .font(.system(.headline, design: .rounded, weight: .bold))
                             Text(block.category.title)
                                 .font(.caption.weight(.semibold))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(block.category.color.opacity(0.2), in: Capsule())
+                                .background(block.category.color.opacity(DS.Emphasis.medium), in: Capsule())
                         }
                     }
                     Spacer()
@@ -56,24 +57,32 @@ struct SessionCard: View {
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: 120, height: 72)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                                .scaleEffect(thumbnailHovered ? 1.05 : 1.0)
+                                .shadow(color: .black.opacity(thumbnailHovered ? 0.3 : 0), radius: 8, y: 4)
+                                .animation(.easeOut(duration: DS.Motion.fast), value: thumbnailHovered)
                         }
                         .buttonStyle(.plain)
+                        .onHover { thumbnailHovered = $0 }
+                        .accessibilityLabel("Preview screenshot for \(block.app)")
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                     HStack(alignment: .top) {
                         Text(block.task)
                             .font(.body)
                             .lineLimit(expanded ? nil : 1)
                         Spacer()
                         Button {
-                            expanded.toggle()
+                            withAnimation(.easeInOut(duration: DS.Motion.fast)) {
+                                expanded.toggle()
+                            }
                         } label: {
                             Image(systemName: expanded ? "chevron.up" : "chevron.down")
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(expanded ? "Collapse details" : "Expand details")
                     }
 
                     VStack(alignment: .leading, spacing: 6) {
@@ -92,7 +101,7 @@ struct SessionCard: View {
                 }
             }
         }
-        .padding(16)
-        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 20))
+        .padding(DS.Spacing.lg)
+        .background(DS.Surface.card, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
     }
 }

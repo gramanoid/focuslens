@@ -5,10 +5,10 @@ struct AIAnalysisTabView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 DateRangeSelectorView(selection: $viewModel.selectedDateRange)
 
-                HStack(alignment: .bottom, spacing: 12) {
+                HStack(alignment: .bottom, spacing: DS.Spacing.md) {
                     Picker("Analysis Type", selection: $viewModel.analysisType) {
                         ForEach(AnalysisType.allCases) { type in
                             Text(type.rawValue).tag(type)

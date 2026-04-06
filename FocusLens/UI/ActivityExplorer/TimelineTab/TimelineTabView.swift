@@ -4,18 +4,18 @@ struct TimelineTabView: View {
     @ObservedObject var viewModel: ActivityExplorerViewModel
 
     var body: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: DS.Spacing.xl) {
             sidebar
             content
         }
     }
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: DS.Spacing.lg) {
             DatePicker("Day", selection: $viewModel.selectedDay, displayedComponents: .date)
                 .datePickerStyle(.graphical)
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 Text("Filters")
                     .font(.headline)
 
@@ -34,11 +34,12 @@ struct TimelineTabView: View {
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 7)
                                     .background(
-                                        viewModel.selectedCategories.contains(category) ? category.color.opacity(0.22) : .white.opacity(0.06),
+                                        viewModel.selectedCategories.contains(category) ? category.color.opacity(DS.Emphasis.medium) : DS.Surface.card,
                                         in: Capsule()
                                     )
                             }
                             .buttonStyle(.plain)
+                            .hoverFeedback()
                         }
                     }
                 }
@@ -64,17 +65,19 @@ struct TimelineTabView: View {
                 Toggle("Show only focus sessions", isOn: $viewModel.showOnlyFocusSessions)
             }
             Spacer()
+            daySummaryCard
         }
         .frame(width: 300)
-        .padding(18)
-        .background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 24))
+        .padding(DS.Spacing.lg)
+        .background(DS.Surface.inset, in: RoundedRectangle(cornerRadius: DS.Radius.xl))
     }
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 Text(viewModel.selectedDay.formatted(date: .abbreviated, time: .omitted))
-                    .font(.largeTitle.weight(.semibold))
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .tracking(-0.5)
                 Spacer()
                 Picker("View", selection: $viewModel.timelineViewMode) {
                     ForEach(TimelineViewMode.allCases) { mode in
@@ -117,8 +120,42 @@ struct TimelineTabView: View {
                 GanttView(blocks: viewModel.timelineBlocks, day: viewModel.selectedDay)
             }
         }
-        .padding(20)
-        .background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 24))
+        .padding(DS.Spacing.xl)
+        .background(DS.Surface.inset, in: RoundedRectangle(cornerRadius: DS.Radius.xl))
+    }
+
+    private var daySummaryCard: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            HStack {
+                Image(systemName: "sparkles")
+                    .foregroundStyle(DS.Accent.primary)
+                Text("Day Summary")
+                    .font(.caption.weight(.semibold))
+            }
+
+            if viewModel.timelineBlocks.isEmpty {
+                Text("No sessions recorded for this day yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                let blocks = viewModel.timelineBlocks
+                let totalDuration = blocks.reduce(0.0) { $0 + $1.duration }
+                let topApp = Dictionary(grouping: blocks, by: \.app)
+                    .max(by: { $0.value.reduce(0) { $0 + $1.duration } < $1.value.reduce(0) { $0 + $1.duration } })?
+                    .key ?? "Unknown"
+                let topCategory = Dictionary(grouping: blocks, by: \.category)
+                    .max(by: { $0.value.count < $1.value.count })?
+                    .key ?? .other
+                let switches = zip(blocks.dropLast(), blocks.dropFirst()).filter { $0.0.app != $0.1.app }.count
+
+                Text("\(AnalysisAggregator.format(duration: totalDuration)) tracked across \(blocks.count) sessions. Mostly \(topCategory.title.lowercased()) in \(topApp). \(switches) context switch\(switches == 1 ? "" : "es").")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(DS.Spacing.md)
+        .background(DS.Surface.card, in: RoundedRectangle(cornerRadius: DS.Radius.md))
     }
 
     private func connection(before index: Int) -> Bool {

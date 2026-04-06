@@ -41,9 +41,20 @@ extension LlamaCppClient {
         }
     }
 
-    func classifyImage(_ data: Data, baseURL: URL) async throws -> ClassificationResult {
+    func classifyImage(
+        _ data: Data,
+        baseURL: URL,
+        frontmostAppName: String,
+        frontmostBundleID: String?
+    ) async throws -> ClassificationResult {
         let prompt = """
-        What is the user working on? Respond ONLY with valid JSON: {"app": "<app name>", "category": "<coding|writing|browsing|communication|media|design|other>", "task": "<one sentence description>", "confidence": <0.0-1.0>}
+        You are classifying a macOS screenshot.
+        The frontmost app reported by the OS is "\(frontmostAppName)".
+        Bundle ID: "\(frontmostBundleID ?? "unknown")".
+        Use the OS-reported app name exactly unless it is obviously wrong.
+        Do not invent or OCR a variant of the app name.
+        If screen text is small or uncertain, keep the task description broad and avoid guessing product names.
+        Respond ONLY with valid JSON: {"app": "<app name>", "category": "<coding|writing|browsing|communication|media|design|other>", "task": "<one sentence description>", "confidence": <0.0-1.0>}
         """
 
         let base64Image = data.base64EncodedString()

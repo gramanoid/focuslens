@@ -5,9 +5,9 @@ struct CategoryDonutChart: View {
     let summaries: [CategorySummary]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
             Text("Category Breakdown")
-                .font(.headline)
+                .font(.system(.headline, design: .rounded, weight: .bold))
 
             if #available(macOS 14.0, *) {
                 Chart(summaries) { summary in
@@ -43,7 +43,9 @@ struct CategoryDonutChart: View {
                 .font(.caption)
             }
         }
-        .padding(18)
-        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 22))
+        .padding(DS.Spacing.lg)
+        .background(DS.Surface.card, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Category breakdown chart")
     }
 }

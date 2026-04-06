@@ -34,11 +34,6 @@ struct FocusLensApp: App {
             StatusMenuBarLabel(status: appState.captureStatus, serverReachable: appState.serverReachable)
         }
         .menuBarExtraStyle(.window)
-
-        Settings {
-            PreferencesView(appState: appState)
-                .frame(width: 520, height: 360)
-        }
     }
 }
 
@@ -47,9 +42,14 @@ struct StatusMenuBarLabel: View {
     let serverReachable: Bool
 
     var body: some View {
-        Image(systemName: symbolName)
+        let image = Image(systemName: symbolName)
             .symbolRenderingMode(.hierarchical)
             .foregroundStyle(color)
+        if #available(macOS 14.0, *) {
+            image.contentTransition(.symbolEffect(.replace))
+        } else {
+            image
+        }
     }
 
     private var symbolName: String {
@@ -68,13 +68,13 @@ struct StatusMenuBarLabel: View {
     private var color: Color {
         switch status {
         case .idle:
-            return serverReachable ? Color.green : Color.orange
+            return serverReachable ? DS.Accent.primary : DS.Accent.warning
         case .capturing:
             return Color.cyan
         case .classifying:
-            return Color.teal
+            return DS.Accent.processing
         case .warning:
-            return Color.orange
+            return DS.Accent.warning
         }
     }
 }

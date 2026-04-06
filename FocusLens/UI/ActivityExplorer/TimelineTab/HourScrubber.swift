@@ -6,13 +6,13 @@ struct HourScrubber: View {
     let onSelect: (Int) -> Void
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: DS.Spacing.xs + 2) {
             ForEach(0 ..< 24, id: \.self) { hour in
                 Button {
                     selectedHour = hour
                     onSelect(hour)
                 } label: {
-                    VStack(spacing: 6) {
+                    VStack(spacing: DS.Spacing.xs + 2) {
                         Text(String(format: "%02d", hour))
                             .font(.caption2.monospacedDigit())
                         RoundedRectangle(cornerRadius: 6)
@@ -21,6 +21,7 @@ struct HourScrubber: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Hour \(hour), \(Int((density[hour] ?? 0) * 100))% activity")
                 .frame(maxWidth: .infinity)
             }
         }
@@ -32,8 +33,8 @@ struct HourScrubber: View {
             return .white
         }
         if value == 0 {
-            return .gray.opacity(0.2)
+            return DS.Surface.inset
         }
-        return .green.opacity(0.25 + value * 0.65)
+        return DS.Accent.primary.opacity(0.25 + value * 0.65)
     }
 }

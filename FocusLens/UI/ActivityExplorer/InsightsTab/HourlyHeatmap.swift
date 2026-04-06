@@ -10,10 +10,11 @@ struct HourlyHeatmap: View {
             .sorted { $0.0 < $1.0 }
         let maxMinutes = max(cells.map(\.minutes).max() ?? 0, 1)
 
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
             Text("Hourly Activity Heatmap")
-                .font(.headline)
+                .font(.system(.headline, design: .rounded, weight: .bold))
 
+            ScrollView(.horizontal, showsIndicators: false) {
             Grid(alignment: .leading, horizontalSpacing: 6, verticalSpacing: 6) {
                 GridRow {
                     Text("")
@@ -33,17 +34,19 @@ struct HourlyHeatmap: View {
                                 onSelect(day, cell.hour)
                             } label: {
                                 RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.green.opacity(0.12 + (cell.minutes / maxMinutes) * 0.88))
+                                    .fill(DS.Accent.primary.opacity(0.12 + (cell.minutes / maxMinutes) * 0.88))
                                     .frame(width: 18, height: 18)
                             }
                             .buttonStyle(.plain)
-                            .help("\(day.formatted(date: .abbreviated, time: .omitted)) \(String(format: "%02d", cell.hour)):00\n\(Int(cell.minutes)) minutes")
+                            .accessibilityLabel("\(day.formatted(date: .abbreviated, time: .omitted)) hour \(cell.hour), \(Int(cell.minutes)) minutes tracked")
+                            .help("\(day.formatted(date: .abbreviated, time: .omitted)) \(String(format: "%02d", cell.hour)):00 — \(Int(cell.minutes)) min")
                         }
                     }
                 }
             }
+            }
         }
-        .padding(18)
-        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 22))
+        .padding(DS.Spacing.lg)
+        .background(DS.Surface.card, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
     }
 }

@@ -54,6 +54,15 @@ final class ActivityExplorerViewModel: ObservableObject {
     @Published var isGeneratingAnalysis = false
     @Published var exportError: String?
 
+    // Cached derived data — updated in reloadRange()/reloadDay(), not on every render.
+    @Published private(set) var cachedRangeBlocks: [SessionBlock] = []
+    @Published private(set) var cachedCategorySummaries: [CategorySummary] = []
+    @Published private(set) var cachedAppUsage: [AppUsageSummary] = []
+    @Published private(set) var cachedFocusTrend: [FocusScorePoint] = []
+    @Published private(set) var cachedHourlyHeatmap: [HourlyHeatCell] = []
+    @Published private(set) var cachedSwitchTrend: [HourlySwitchPoint] = []
+    @Published private(set) var cachedAllApps: [String] = []
+
     let appState: AppState
 
     init(appState: AppState) {
@@ -79,54 +88,36 @@ final class ActivityExplorerViewModel: ObservableObject {
     }
 
     var allApps: [String] {
-        let apps = (try? appState.database.fetchDistinctApps()) ?? []
-        guard !appSearchText.isEmpty else { return apps }
-        return apps.filter { $0.localizedCaseInsensitiveContains(appSearchText) }
+        guard !appSearchText.isEmpty else { return cachedAllApps }
+        return cachedAllApps.filter { $0.localizedCaseInsensitiveContains(appSearchText) }
     }
 
-    var rangeBlocks: [SessionBlock] {
-        AnalysisAggregator.blocks(from: rangeSessions, fallbackInterval: appState.captureInterval.rawValue)
-    }
-
-    var categorySummaries: [CategorySummary] {
-        AnalysisAggregator.categorySummaries(for: rangeBlocks)
-    }
-
-    var appUsage: [AppUsageSummary] {
-        AnalysisAggregator.appUsage(for: rangeBlocks)
-    }
-
-    var focusTrend: [FocusScorePoint] {
-        AnalysisAggregator.focusScoreTrend(blocks: rangeBlocks, interval: selectedRangeInterval)
-    }
-
-    var hourlyHeatmap: [HourlyHeatCell] {
-        AnalysisAggregator.hourlyHeatmap(blocks: rangeBlocks, interval: selectedRangeInterval)
-    }
-
-    var switchTrend: [HourlySwitchPoint] {
-        AnalysisAggregator.averageSwitchesByHour(blocks: rangeBlocks, interval: selectedRangeInterval)
-    }
+    var rangeBlocks: [SessionBlock] { cachedRangeBlocks }
+    var categorySummaries: [CategorySummary] { cachedCategorySummaries }
+    var appUsage: [AppUsageSummary] { cachedAppUsage }
+    var focusTrend: [FocusScorePoint] { cachedFocusTrend }
+    var hourlyHeatmap: [HourlyHeatCell] { cachedHourlyHeatmap }
+    var switchTrend: [HourlySwitchPoint] { cachedSwitchTrend }
 
     var hourlyDensityForSelectedDay: [Int: Double] {
         AnalysisAggregator.hourlyDensity(for: timelineBlocks, on: selectedDay)
     }
 
     var totalTrackedTimeText: String {
-        AnalysisAggregator.format(duration: AnalysisAggregator.totalDuration(of: rangeBlocks))
+        AnalysisAggregator.format(duration: AnalysisAggregator.totalDuration(of: cachedRangeBlocks))
     }
 
     var mostUsedAppText: String {
-        appUsage.first?.app ?? "None"
+        cachedAppUsage.first?.app ?? "None"
     }
 
     var longestFocusSessionText: String {
-        guard let block = AnalysisAggregator.longestFocusBlock(in: rangeBlocks) else { return "None" }
+        guard let block = AnalysisAggregator.longestFocusBlock(in: cachedRangeBlocks) else { return "None" }
         return "\(AnalysisAggregator.format(duration: block.duration)) in \(block.category.title)"
     }
 
     var contextSwitchesText: String {
-        "\(AnalysisAggregator.contextSwitchCount(in: rangeBlocks))"
+        "\(AnalysisAggregator.contextSwitchCount(in: cachedRangeBlocks))"
     }
 
     func reloadAll() {
@@ -140,10 +131,19 @@ final class ActivityExplorerViewModel: ObservableObject {
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start
         let interval = DateInterval(start: start, end: end)
         daySessions = (try? appState.database.fetchSessions(in: interval)) ?? []
+        cachedAllApps = (try? appState.database.fetchDistinctApps()) ?? []
     }
 
     func reloadRange() {
         rangeSessions = (try? appState.database.fetchSessions(in: selectedRangeInterval)) ?? []
+        let interval = selectedRangeInterval
+        let blocks = AnalysisAggregator.blocks(from: rangeSessions, fallbackInterval: appState.captureInterval.rawValue)
+        cachedRangeBlocks = blocks
+        cachedCategorySummaries = AnalysisAggregator.categorySummaries(for: blocks)
+        cachedAppUsage = AnalysisAggregator.appUsage(for: blocks)
+        cachedFocusTrend = AnalysisAggregator.focusScoreTrend(blocks: blocks, interval: interval)
+        cachedHourlyHeatmap = AnalysisAggregator.hourlyHeatmap(blocks: blocks, interval: interval)
+        cachedSwitchTrend = AnalysisAggregator.averageSwitchesByHour(blocks: blocks, interval: interval)
     }
 
     func reloadAnalyses() {
@@ -242,11 +242,12 @@ final class ActivityExplorerViewModel: ObservableObject {
     private func exportPayload(for format: ExportFormat) throws -> Data {
         switch format {
         case .csv:
+            let dateFormatter = ISO8601DateFormatter()
             var lines = ["timestamp,app,bundle_id,category,task,confidence,screenshot_path"]
             for session in rangeSessions {
                 lines.append(
                     [
-                        ISO8601DateFormatter().string(from: session.timestamp),
+                        dateFormatter.string(from: session.timestamp),
                         session.app,
                         session.bundleID ?? "",
                         session.category.rawValue,
@@ -319,7 +320,7 @@ struct ActivityExplorerView: View {
     @ObservedObject var viewModel: ActivityExplorerViewModel
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: DS.Spacing.lg) {
             Picker("Tab", selection: $viewModel.selectedTab) {
                 ForEach(ActivityExplorerTab.allCases) { tab in
                     Text(tab.rawValue).tag(tab)
@@ -338,16 +339,11 @@ struct ActivityExplorerView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .motionSafe(.easeInOut(duration: DS.Motion.fast), value: viewModel.selectedTab)
         }
-        .padding(20)
+        .padding(DS.Spacing.xl)
         .frame(minWidth: 960, minHeight: 680)
-        .background(
-            LinearGradient(
-                colors: [Color.black, Color(red: 0.04, green: 0.06, blue: 0.08)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
+        .background(DS.Background.dashboard)
         .preferredColorScheme(.dark)
         .onChange(of: viewModel.selectedDay) { _ in
             viewModel.reloadDay()
@@ -370,7 +366,7 @@ struct DateRangeSelectorView: View {
     @Binding var selection: DateRangeSelection
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             Picker("Range", selection: $selection.preset) {
                 ForEach(DateRangePreset.allCases) { preset in
                     Text(preset.title).tag(preset)

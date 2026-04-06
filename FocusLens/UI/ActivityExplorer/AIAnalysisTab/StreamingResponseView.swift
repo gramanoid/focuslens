@@ -6,9 +6,9 @@ struct StreamingResponseView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 if isStreaming {
-                    HStack(spacing: 8) {
+                    HStack(spacing: DS.Spacing.sm) {
                         ProgressView()
                             .controlSize(.small)
                         Text("Streaming from llama.cpp")
@@ -19,20 +19,35 @@ struct StreamingResponseView: View {
                 renderedText
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(18)
+            .padding(DS.Spacing.lg)
         }
-        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 22))
+        .background(DS.Surface.card, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
     }
 
     @ViewBuilder
     private var renderedText: some View {
-        if let attributed = try? AttributedString(markdown: text) {
+        if text.isEmpty {
+            VStack(spacing: DS.Spacing.sm) {
+                Image(systemName: "text.magnifyingglass")
+                    .font(.title2)
+                    .foregroundStyle(.tertiary)
+                Text("Pick an analysis type above and hit Generate to get AI insights on your tracked data.")
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 40)
+        } else if isStreaming {
+            // During streaming, render plain text to avoid re-parsing markdown on every token.
+            Text(text)
+                .textSelection(.enabled)
+        } else if let attributed = try? AttributedString(markdown: text) {
+            // Only parse markdown once streaming is complete.
             Text(attributed)
                 .textSelection(.enabled)
         } else {
-            Text(text.isEmpty ? "No analysis generated yet." : text)
+            Text(text)
                 .textSelection(.enabled)
-                .foregroundStyle(text.isEmpty ? .secondary : .primary)
         }
     }
 }

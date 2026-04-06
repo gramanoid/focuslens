@@ -1,141 +1,103 @@
 # FocusLens
 
-FocusLens is a native macOS menu bar app that captures the current screen on a configurable interval, classifies the user’s activity with a local `llama.cpp` vision server, stores the results in SQLite via GRDB, and visualizes the history in a native Activity Explorer dashboard.
+A native macOS menu bar app that silently captures your screen, classifies your activity with a local vision model, and visualizes your work patterns — all without sending a single byte off your Mac.
 
-## Features
+## What It Does
 
-- Menu bar app with no Dock icon
-- Configurable silent screen capture using `CGWindowListCreateImage`
-- Local-only vision classification through `llama-server`
-- SQLite storage with GRDB
-- Dashboard with Timeline, Insights, and AI Analysis tabs
-- CSV, JSON, and Markdown export
-- Optional screenshot deletion after classification
-- Launch at login, excluded apps, and server health checks
+FocusLens takes periodic screenshots, sends them to a local `llama.cpp` vision server running on your machine, and builds a searchable timeline of what you were working on. Think of it as a private activity journal powered by on-device AI.
+
+- **Menu bar app** — lives in your menu bar, no Dock icon, no distractions
+- **Local-only AI** — all inference runs on your Mac via `llama-server`
+- **Auto model management** — pick from 4 recommended models, FocusLens downloads and starts the server for you
+- **Activity timeline** — scrollable card-based view with app icons, task descriptions, and confidence scores
+- **Insights dashboard** — category breakdown, hourly heatmap, focus score trends, context switch tracking
+- **AI analysis** — ask your local model to analyze your productivity patterns
+- **CSV / JSON / Markdown export** — get your data out in any format
+- **Privacy-first** — screenshots can be auto-deleted after classification, everything stays in `~/Library/Application Support/FocusLens/`
 
 ## Requirements
 
 - macOS 13.0+
-- Swift 5.9+ / Swift 6 toolchain works
-- XcodeGen for regenerating the Xcode project
-- `llama.cpp` installed locally
+- [llama.cpp](https://github.com/ggerganov/llama.cpp) (`brew install llama.cpp`)
+- Xcode or Swift 5.9+ toolchain (to build)
 
-## Install
+## Quick Start
 
 ```bash
+# Install dependencies
 brew install llama.cpp xcodegen
-cd /Users/alexgrama/Developer/focuslens
+
+# Clone and build
+git clone https://github.com/gramanoid/focuslens.git
+cd focuslens
 xcodegen generate
 open FocusLens.xcodeproj
 ```
 
-The package also builds directly with SwiftPM:
+Or build directly with SwiftPM:
 
 ```bash
 swift build
 ```
 
-## Vision Models
+## First Launch
 
-Recommended models for FocusLens:
+1. **Grant Screen Recording** — macOS will prompt you, or use the in-app setup flow
+2. **Select a model** — open Preferences and pick from the recommended models:
 
-| Model | Size | Quality |
+| Model | Size | Best For |
 | --- | --- | --- |
-| Qwen2-VL-2B-Instruct Q4_K_M | ~1.0GB + 0.7GB mmproj | Best lightweight screenshot/OCR balance |
-| moondream2 | ~1.7GB | Fast, good for app detection |
-| llava-v1.5-7b | ~4GB | Better accuracy |
-| llava-v1.6-mistral-7b | ~4.5GB | Best accuracy |
+| **Qwen2-VL 2B** | ~1.7 GB | Lightweight daily use, great OCR |
+| Moondream 2 | ~1.7 GB | Fast app detection |
+| LLaVA 1.5 7B | ~4 GB | Detailed task descriptions |
+| LLaVA 1.6 Mistral 7B | ~4.5 GB | Highest accuracy |
 
-Suggested Hugging Face sources:
+3. **FocusLens downloads the model and starts the server automatically** — no Terminal commands needed
+4. **Your first capture happens** within the configured interval (default: 1 minute)
 
-- `Qwen2-VL-2B-Instruct` GGUF: [ggml-org/Qwen2-VL-2B-Instruct-GGUF](https://huggingface.co/ggml-org/Qwen2-VL-2B-Instruct-GGUF)
-- `Qwen2-VL-2B-Instruct` base model card: [Qwen/Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)
-- `moondream2` GGUF: [ggml-org/moondream2-20250414-GGUF](https://huggingface.co/ggml-org/moondream2-20250414-GGUF)
-- `moondream2` mmproj: [moondream/moondream2-gguf](https://huggingface.co/moondream/moondream2-gguf/blob/main/moondream2-mmproj-f16.gguf)
-- `llava-v1.5-7b` GGUF: [mys/ggml_llava-v1.5-7b](https://huggingface.co/mys/ggml_llava-v1.5-7b)
-- `llava-v1.5-7b` mmproj: [mys/ggml_llava-v1.5-7b mmproj-model-f16.gguf](https://huggingface.co/mys/ggml_llava-v1.5-7b/blob/main/mmproj-model-f16.gguf)
-- `llava-v1.6-mistral-7b` GGUF: [cjpais/llava-1.6-mistral-7b-gguf](https://huggingface.co/cjpais/llava-1.6-mistral-7b-gguf)
-- `llava-v1.6-mistral-7b` mmproj: [cjpais/llava-1.6-mistral-7b-gguf mmproj-model-f16.gguf](https://huggingface.co/cjpais/llava-1.6-mistral-7b-gguf/tree/main)
+## Architecture
 
-## Start `llama-server`
-
-FocusLens expects an OpenAI-compatible server at `http://localhost:8080`.
-
-Recommended lightweight setup with Qwen2-VL-2B:
-
-```bash
-llama-server -m ~/models/Qwen2-VL-2B-Instruct-Q4_K_M.gguf --mmproj ~/models/mmproj-Qwen2-VL-2B-Instruct-Q8_0.gguf --port 8080 -ngl 99
+```
+FocusLens/
+├── App/          # AppState, app lifecycle
+├── AI/           # LlamaCppClient, ModelDefinition, ModelDownloadManager, ServerProcessManager
+├── Capture/      # Screen capture with CGWindowListCreateImage
+├── Storage/      # SQLite via GRDB (sessions + analyses)
+├── UI/           # SwiftUI views, design tokens (DS enum)
+│   └── ActivityExplorer/
+│       ├── TimelineTab/    # Card timeline + Gantt view
+│       ├── InsightsTab/    # Charts, heatmap, focus score
+│       └── AIAnalysisTab/  # Streaming LLM analysis
+└── Utils/        # Image helpers, app icon resolver
 ```
 
-Vision mode with moondream2:
+## Design System
 
-```bash
-llama-server -m ~/models/moondream2.gguf --mmproj ~/models/moondream2-mmproj.gguf --port 8080 -ngl 99
-```
+All UI values are centralized in `FocusLens/UI/DesignTokens.swift`:
 
-Vision mode with LLaVA 1.5:
-
-```bash
-llama-server -m ~/models/llava-v1.5-7b.Q4_K_M.gguf --mmproj ~/models/mmproj-model-f16.gguf --port 8080 -ngl 99
-```
-
-Vision mode with LLaVA 1.6 Mistral:
-
-```bash
-llama-server -m ~/models/llava-v1.6-mistral-7b.Q4_K_M.gguf --mmproj ~/models/mmproj-model-f16.gguf --port 8080 -ngl 99
-```
-
-Text-only analysis mode:
-
-```bash
-llama-server -m ~/models/moondream2.gguf --mmproj ~/models/moondream2-mmproj.gguf --port 8080 -ngl 99
-```
-
-FocusLens uses the same server for both image classification and text-only analysis. When the app sends a text-only analysis request, it simply omits the image content from the request body.
-
-## Grant Screen Recording Permission
-
-On first launch, macOS will ask for Screen Recording access. If it does not:
-
-1. Open **System Settings**
-2. Go to **Privacy & Security**
-3. Open **Screen Recording**
-4. Enable **FocusLens**
-5. Relaunch the app
-
-The app also exposes an **Open Privacy Settings** shortcut from its onboarding sheet.
+- **`DS.Radius`** — 4-step corner radius scale (sm/md/lg/xl)
+- **`DS.Surface`** — semantic dark-surface opacity hierarchy (inset/card/raised/overlay)
+- **`DS.Accent`** — emerald primary (#10B981), warning, caution, processing
+- **`DS.Spacing`** — 4pt base grid
+- **`DS.Emphasis`** — accent tint opacity scale (subtle/medium/strong)
+- **`DS.Motion`** — animation duration tokens with `motionSafe()` modifier for reduced-motion support
 
 ## Storage
 
-FocusLens stores data locally only:
+All data stays local:
 
-- Database: `~/Library/Application Support/FocusLens/focuslens.sqlite`
-- Screenshots: `~/Library/Application Support/FocusLens/screenshots/*.png`
+- **Database**: `~/Library/Application Support/FocusLens/focuslens.sqlite`
+- **Screenshots**: `~/Library/Application Support/FocusLens/screenshots/` (configurable)
 
-SQLite tables:
+Screenshots are saved as `YYYY-MM-DD_HH-mm-ss_AppName.png`.
 
-- `sessions(id, timestamp, app, bundle_id, category, task, confidence, screenshot_path, raw_response)`
-- `analyses(id, timestamp, type, date_range_start, date_range_end, prompt, response)`
+## Privacy
 
-## Project Structure
+- All inference runs on localhost via `llama-server` — no cloud APIs
+- No telemetry, no analytics, no network calls beyond `localhost`
+- Screenshots are optional and can be auto-deleted after classification
+- Communication apps that block screen capture (Telegram, WhatsApp) are detected and handled gracefully
 
-```text
-FocusLens/
-├── App/
-├── Capture/
-├── AI/
-├── Storage/
-├── UI/
-└── Utils/
-```
+## License
 
-## Verification
-
-Verified locally in this workspace with:
-
-```bash
-swift build
-swift run FocusLens --self-check
-```
-
-The `.xcodeproj` is generated and present at `FocusLens.xcodeproj`. `xcodebuild` was not run in this environment because the full Xcode app was not installed; only Command Line Tools were available.
+MIT

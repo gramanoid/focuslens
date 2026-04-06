@@ -7,6 +7,7 @@ struct ScreenCapturePayload {
     let activeBundleID: String?
     let screenshotURL: URL
     let resizedPNGData: Data
+    let isBlankCapture: Bool
 }
 
 enum ScreenCaptureError: LocalizedError {
@@ -28,7 +29,16 @@ enum ScreenCaptureError: LocalizedError {
 
 enum ScreenCapture {
     static func hasPermission() -> Bool {
-        CGPreflightScreenCaptureAccess()
+        // CGPreflightScreenCaptureAccess can return stale results after the user
+        // toggles the permission in System Settings. Fall back to attempting a
+        // minimal capture as a ground-truth check.
+        if CGPreflightScreenCaptureAccess() {
+            return true
+        }
+        // Try a 1x1 capture — if it succeeds, the permission is actually granted
+        // even though the preflight API hasn't caught up yet.
+        let testRect = CGRect(x: 0, y: 0, width: 1, height: 1)
+        return CGWindowListCreateImage(testRect, .optionOnScreenOnly, kCGNullWindowID, []) != nil
     }
 
     @discardableResult
@@ -44,7 +54,7 @@ enum ScreenCapture {
         NSWorkspace.shared.open(url)
     }
 
-    static func capture() throws -> ScreenCapturePayload {
+    static func capture(screenshotDirectory: String? = nil) throws -> ScreenCapturePayload {
         guard hasPermission() else {
             throw ScreenCaptureError.permissionDenied
         }
@@ -66,18 +76,24 @@ enum ScreenCapture {
             throw ScreenCaptureError.encodingFailed
         }
 
-        let screenshotsDirectory = try ImageHelpers.screenshotsDirectory()
-        let unixTimestamp = Int64((timestamp.timeIntervalSince1970 * 1000).rounded())
-        let fileURL = screenshotsDirectory.appendingPathComponent("\(unixTimestamp).png")
+        let screenshotsDirectory = try ImageHelpers.screenshotsDirectory(customPath: screenshotDirectory)
+        let frontmostApplication = NSWorkspace.shared.frontmostApplication
+        let appSlug = (frontmostApplication?.localizedName ?? "Unknown")
+            .replacingOccurrences(of: " ", with: "-")
+            .replacingOccurrences(of: "/", with: "-")
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let fileURL = screenshotsDirectory.appendingPathComponent("\(dateFormatter.string(from: timestamp))_\(appSlug).png")
         try ImageHelpers.write(fullPNGData, to: fileURL)
 
-        let frontmostApplication = NSWorkspace.shared.frontmostApplication
+        let isBlank = ImageHelpers.isBlankCapture(image)
         return ScreenCapturePayload(
             timestamp: timestamp,
             activeAppName: frontmostApplication?.localizedName ?? "Unknown App",
             activeBundleID: frontmostApplication?.bundleIdentifier,
             screenshotURL: fileURL,
-            resizedPNGData: resizedPNGData
+            resizedPNGData: resizedPNGData,
+            isBlankCapture: isBlank
         )
     }
 }

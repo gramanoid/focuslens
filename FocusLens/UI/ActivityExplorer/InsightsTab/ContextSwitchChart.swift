@@ -5,19 +5,21 @@ struct ContextSwitchChart: View {
     let points: [HourlySwitchPoint]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
             Text("Context Switch Frequency")
-                .font(.headline)
+                .font(.system(.headline, design: .rounded, weight: .bold))
             Chart(points) { point in
                 BarMark(
                     x: .value("Hour", point.hour),
                     y: .value("Switches", point.averageSwitches)
                 )
-                .foregroundStyle(.orange)
+                .foregroundStyle(DS.Accent.warning)
             }
             .frame(height: 260)
         }
-        .padding(18)
-        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 22))
+        .padding(DS.Spacing.lg)
+        .background(DS.Surface.card, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Context switch frequency chart")
     }
 }

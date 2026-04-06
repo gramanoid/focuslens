@@ -5,57 +5,64 @@ struct MenuBarPopover: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 heroSection
+                dashboardButton
                 if appState.needsOnboarding {
                     setupSection
                 }
                 todaySummarySection
                 recentEntriesSection
-                actionSection
+                secondaryActions
                 privacyFootnote
             }
-            .padding(20)
+            .padding(DS.Spacing.xl)
         }
-        .frame(width: 410, height: 620)
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.04, green: 0.05, blue: 0.06),
-                    Color(red: 0.02, green: 0.02, blue: 0.03)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .sheet(isPresented: $appState.showPreferences) {
-            PreferencesView(appState: appState)
-                .frame(width: 560, height: 560)
-        }
+        .frame(width: 410, height: 480)
+        .background(DS.Background.primary)
         .sheet(isPresented: $appState.showPermissionSheet) {
             ScreenPermissionSheet(appState: appState)
-                .frame(width: 460, height: 320)
         }
     }
 
     private var heroSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 10) {
+                    HStack(spacing: DS.Spacing.sm) {
                         ZStack {
                             Circle()
-                                .fill(heroAccent.opacity(0.14))
+                                .fill(heroAccent.opacity(DS.Emphasis.subtle))
                                 .frame(width: 40, height: 40)
-                            Image(systemName: appState.statusSymbolName)
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(heroAccent)
+                                .overlay(
+                                    Circle()
+                                        .stroke(heroAccent.opacity(isCapturing ? 0.4 : 0), lineWidth: 2)
+                                        .frame(width: 40, height: 40)
+                                        .scaleEffect(isCapturing ? 1.4 : 1)
+                                        .opacity(isCapturing ? 0 : 1)
+                                        .animation(
+                                            isCapturing ? .easeOut(duration: 1.2).repeatForever(autoreverses: false) : .default,
+                                            value: isCapturing
+                                        )
+                                )
+                            if #available(macOS 14.0, *) {
+                                Image(systemName: appState.statusSymbolName)
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(heroAccent)
+                                    .contentTransition(.symbolEffect(.replace))
+                            } else {
+                                Image(systemName: appState.statusSymbolName)
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(heroAccent)
+                            }
                         }
                         VStack(alignment: .leading, spacing: 2) {
                             Text("FocusLens")
-                                .font(.system(size: 26, weight: .semibold, design: .rounded))
-                            Text(statusTitle)
-                                .font(.subheadline.weight(.medium))
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .tracking(-0.5)
+                            Text(statusTitle.uppercased())
+                                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                                .tracking(1.2)
                                 .foregroundStyle(heroAccent)
                         }
                     }
@@ -68,11 +75,11 @@ struct MenuBarPopover: View {
                 statusChip(appState.isRunning ? "Running" : "Paused", tone: appState.isRunning ? heroAccent : .secondary)
             }
 
-            HStack(spacing: 10) {
+            HStack(spacing: DS.Spacing.sm) {
                 metricTile(
                     title: "Tracked Today",
                     value: appState.totalTrackedTimeToday > 0 ? AnalysisAggregator.format(duration: appState.totalTrackedTimeToday) : "Waiting",
-                    detail: "\(appState.todaySessionCount) captures"
+                    detail: captureCountDetail
                 )
                 metricTile(
                     title: "Dominant",
@@ -86,23 +93,25 @@ struct MenuBarPopover: View {
                 )
             }
         }
-        .padding(18)
+        .padding(DS.Spacing.lg)
         .background(
             LinearGradient(
                 colors: [
-                    heroAccent.opacity(0.14),
-                    Color.white.opacity(0.04)
+                    heroAccent.opacity(DS.Emphasis.subtle),
+                    DS.Surface.inset
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: RoundedRectangle(cornerRadius: 26)
+            in: RoundedRectangle(cornerRadius: DS.Radius.xl)
         )
+        .motionSafe(.easeInOut(duration: DS.Motion.normal), value: appState.captureStatus)
+        .motionSafe(.easeInOut(duration: DS.Motion.normal), value: appState.serverReachable)
     }
 
     private var setupSection: some View {
         SurfaceCard(title: "Get set up", subtitle: "Three quiet steps to reach your first useful timeline.") {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 ProgressView(value: appState.setupProgress)
                     .tint(heroAccent)
 
@@ -120,14 +129,24 @@ struct MenuBarPopover: View {
 
                 SetupStepRow(
                     title: "Connect your local model",
-                    detail: appState.serverReachable ? "Qwen2-VL is reachable on localhost." : "Start llama-server so FocusLens can classify each snapshot.",
-                    state: appState.serverReachable ? .complete("Connected") : .action("Copy command"),
+                    detail: modelSetupDetail,
+                    state: modelSetupState,
                     action: {
-                        if !appState.serverReachable {
-                            appState.copyServerCommand()
+                        if appState.serverReachable { return }
+                        if !appState.serverProcess.isLlamaServerInstalled {
+                            appState.openPreferences()
+                        } else if appState.selectedModel.isDownloaded {
+                            appState.startServer()
+                        } else if !appState.downloadManager.status.isDownloading {
+                            appState.downloadAndStartModel(appState.selectedModel)
                         }
                     }
                 )
+
+                if appState.downloadManager.status.isDownloading {
+                    ProgressView(value: appState.downloadManager.overallProgress)
+                        .tint(heroAccent)
+                }
 
                 SetupStepRow(
                     title: "Capture the first snapshot",
@@ -139,20 +158,6 @@ struct MenuBarPopover: View {
                         }
                     }
                 )
-
-                if !appState.serverReachable {
-                    DisclosureGroup("Server start command", isExpanded: $appState.showServerHelp) {
-                        Text(appState.serverStartCommand)
-                            .font(.system(.caption, design: .monospaced))
-                            .textSelection(.enabled)
-                            .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
-                            .padding(.top, 6)
-                    }
-                    .font(.caption.weight(.medium))
-                    .tint(.secondary)
-                }
             }
         }
     }
@@ -160,7 +165,7 @@ struct MenuBarPopover: View {
     private var todaySummarySection: some View {
         SurfaceCard(title: "Today", subtitle: appState.hasCapturedSessions ? "A quick read on how your time has been classified so far." : "Once FocusLens captures your first snapshot, this fills in automatically.") {
             if appState.todaySummary.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: DS.Spacing.smMd) {
                     Text("Your first snapshot will create the first bar in this summary.")
                         .foregroundStyle(.secondary)
                     if appState.isReadyForImmediateCapture {
@@ -169,28 +174,36 @@ struct MenuBarPopover: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(heroAccent)
+                        .hoverFeedback()
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-                .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 18))
+                .padding(DS.Spacing.lg)
+                .background(DS.Surface.inset, in: RoundedRectangle(cornerRadius: DS.Radius.md))
             } else {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: DS.Spacing.md) {
                     Canvas { context, size in
-                        let total = max(appState.todaySummary.reduce(0) { $0 + $1.duration }, 1)
+                        let count = appState.todaySummary.count
+                        let gap: CGFloat = 4
+                        let totalGap = gap * CGFloat(max(0, count - 1))
+                        let usableWidth = max(0, size.width - totalGap)
+                        let totalDuration = max(appState.todaySummary.reduce(0) { $0 + $1.duration }, 1)
                         var x: CGFloat = 0
                         for summary in appState.todaySummary {
-                            let width = max(24, size.width * CGFloat(summary.duration / total))
-                            let rect = CGRect(x: x, y: 0, width: width, height: size.height)
-                            context.fill(Path(roundedRect: rect, cornerRadius: 10), with: .color(summary.category.color))
-                            x += width + 6
+                            let fraction = CGFloat(summary.duration / totalDuration)
+                            let barWidth = max(4, usableWidth * fraction)
+                            let rect = CGRect(x: x, y: 0, width: barWidth, height: size.height)
+                            context.fill(Path(roundedRect: rect, cornerRadius: 6), with: .color(summary.category.color))
+                            x += barWidth + gap
                         }
                     }
                     .frame(height: 22)
+                    .accessibilityElement()
+                    .accessibilityLabel("Today's activity breakdown")
 
                     ForEach(appState.todaySummary) { summary in
                         HStack {
-                            HStack(spacing: 8) {
+                            HStack(spacing: DS.Spacing.sm) {
                                 Circle()
                                     .fill(summary.category.color)
                                     .frame(width: 8, height: 8)
@@ -210,21 +223,26 @@ struct MenuBarPopover: View {
     private var recentEntriesSection: some View {
         SurfaceCard(title: "Recent snapshots", subtitle: appState.hasCapturedSessions ? "What FocusLens has seen most recently." : "The latest classifications appear here once tracking begins.") {
             if appState.recentEntries.isEmpty {
-                Text("No activity has been captured yet.")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
-                    .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 18))
+                HStack(spacing: DS.Spacing.smMd) {
+                    Image(systemName: "camera.metering.unknown")
+                        .font(.title3)
+                        .foregroundStyle(.tertiary)
+                    Text("Snapshots will appear here once tracking begins.")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(DS.Spacing.lg)
+                .background(DS.Surface.inset, in: RoundedRectangle(cornerRadius: DS.Radius.md))
             } else {
-                VStack(spacing: 10) {
+                VStack(spacing: DS.Spacing.sm) {
                     ForEach(appState.recentEntries) { entry in
-                        HStack(alignment: .top, spacing: 12) {
+                        HStack(alignment: .top, spacing: DS.Spacing.smMd) {
                             Image(nsImage: AppIconResolver.icon(for: entry.bundleID))
                                 .resizable()
                                 .frame(width: 26, height: 26)
                                 .clipShape(RoundedRectangle(cornerRadius: 7))
 
-                            VStack(alignment: .leading, spacing: 6) {
+                            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                                 HStack {
                                     Text(entry.app)
                                         .font(.subheadline.weight(.semibold))
@@ -237,43 +255,51 @@ struct MenuBarPopover: View {
                                     .font(.caption)
                                     .lineLimit(2)
                                     .foregroundStyle(.secondary)
-                                HStack(spacing: 8) {
+                                HStack(spacing: DS.Spacing.sm) {
                                     capsuleLabel(entry.category.title, tint: entry.category.color)
-                                    capsuleLabel("\(Int(entry.confidence * 100))% confidence", tint: .white.opacity(0.18))
+                                    capsuleLabel("\(Int(entry.confidence * 100))% confidence", tint: .white.opacity(DS.Emphasis.medium))
                                 }
                             }
                         }
-                        .padding(14)
+                        .padding(DS.Spacing.md)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 18))
+                        .background(DS.Surface.inset, in: RoundedRectangle(cornerRadius: DS.Radius.md))
                     }
                 }
             }
         }
     }
 
-    private var actionSection: some View {
-        VStack(spacing: 10) {
-            Button(appState.hasCapturedSessions ? "Open Dashboard" : "Open Dashboard Anyway") {
-                appState.openDashboard()
+    private var dashboardButton: some View {
+        Button {
+            appState.openDashboard()
+        } label: {
+            HStack {
+                Image(systemName: "chart.bar.xaxis")
+                Text("Open Dashboard")
             }
-            .buttonStyle(.borderedProminent)
-            .tint(heroAccent)
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(heroAccent)
+        .hoverFeedback()
+    }
+
+    private var secondaryActions: some View {
+        HStack(spacing: DS.Spacing.smMd) {
+            Button(appState.isRunning ? "Pause Tracking" : "Resume Tracking") {
+                appState.toggleRunning()
+            }
+            .buttonStyle(.bordered)
+            .hoverFeedback()
             .frame(maxWidth: .infinity)
 
-            HStack(spacing: 10) {
-                Button(appState.isRunning ? "Pause Tracking" : "Resume Tracking") {
-                    appState.toggleRunning()
-                }
-                .buttonStyle(.bordered)
-                .frame(maxWidth: .infinity)
-
-                Button("Preferences") {
-                    appState.showPreferences = true
-                }
-                .buttonStyle(.bordered)
-                .frame(maxWidth: .infinity)
+            Button("Preferences") {
+                appState.openPreferences()
             }
+            .buttonStyle(.bordered)
+            .hoverFeedback()
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -288,17 +314,28 @@ struct MenuBarPopover: View {
         .padding(.horizontal, 4)
     }
 
+    private var captureCountDetail: String {
+        let count = appState.todaySessionCount
+        if count == 0 { return "No captures yet" }
+        if count == 1 { return "1 capture so far" }
+        return "\(count) captures"
+    }
+
+    private var isCapturing: Bool {
+        appState.captureStatus == .capturing || appState.captureStatus == .classifying
+    }
+
     private var heroAccent: Color {
         if !appState.screenPermissionGranted {
-            return .orange
+            return DS.Accent.warning
         }
         if !appState.serverReachable {
-            return .yellow
+            return DS.Accent.caution
         }
         if appState.captureStatus == .classifying {
-            return .teal
+            return DS.Accent.processing
         }
-        return .green
+        return DS.Accent.primary
     }
 
     private var statusTitle: String {
@@ -311,7 +348,10 @@ struct MenuBarPopover: View {
         if !appState.hasCapturedSessions {
             return "Ready for first capture"
         }
-        return appState.isRunning ? "Tracking quietly" : "Paused for now"
+        if appState.captureStatus == .classifying {
+            return "Reading your screen"
+        }
+        return appState.isRunning ? "Tracking quietly" : "Paused"
     }
 
     private var statusMessage: String {
@@ -325,34 +365,82 @@ struct MenuBarPopover: View {
             return "Everything is connected. Take the first snapshot now or wait for the next scheduled interval."
         }
         if let lastCapturedAt = appState.lastCapturedAt {
-            return "Latest snapshot at \(lastCapturedAt.formatted(date: .omitted, time: .shortened)). Review patterns in the dashboard whenever you want a deeper read."
+            let timeAgo = RelativeDateTimeFormatter().localizedString(for: lastCapturedAt, relativeTo: .now)
+            return "\(timeOfDayGreeting). Last snapshot \(timeAgo)."
         }
-        return "FocusLens is monitoring in the background and keeping your activity local."
+        return "\(timeOfDayGreeting). FocusLens is running in the background."
+    }
+
+    private var timeOfDayGreeting: String {
+        let hour = Calendar.current.component(.hour, from: .now)
+        switch hour {
+        case 5..<12: return "Good morning"
+        case 12..<17: return "Good afternoon"
+        case 17..<22: return "Good evening"
+        default: return "Burning the midnight oil"
+        }
+    }
+
+    private var modelSetupDetail: String {
+        if appState.serverReachable {
+            return "\(appState.selectedModel.displayName) is running on localhost."
+        }
+        if !appState.serverProcess.isLlamaServerInstalled {
+            return "Install llama-server: brew install llama.cpp"
+        }
+        if appState.downloadManager.status.isDownloading {
+            return "Downloading \(appState.selectedModel.displayName)..."
+        }
+        if appState.selectedModel.isDownloaded {
+            return "\(appState.selectedModel.displayName) is ready. Tap to start."
+        }
+        return "Download \(appState.selectedModel.displayName) (\(appState.selectedModel.sizeDescription))."
+    }
+
+    private var modelSetupState: SetupStepRow.StepState {
+        if appState.serverReachable { return .complete("Connected") }
+        if appState.downloadManager.status.isDownloading { return .action("Downloading") }
+        if appState.selectedModel.isDownloaded { return .action("Start") }
+        if !appState.serverProcess.isLlamaServerInstalled { return .action("Setup") }
+        return .action("Download")
     }
 
     private func statusChip(_ text: String, tone: Color) -> some View {
-        Text(text)
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(tone.opacity(0.16), in: Capsule())
+        HStack(spacing: DS.Spacing.xs) {
+            if appState.isRunning {
+                Circle()
+                    .fill(tone)
+                    .frame(width: 6, height: 6)
+                    .opacity(isCapturing ? 1 : 0.6)
+            }
+            Text(text)
+                .font(.caption.weight(.semibold))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(tone.opacity(DS.Emphasis.subtle), in: Capsule())
     }
 
     private func metricTile(title: String, value: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
             Text(title.uppercased())
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .tracking(0.8)
+                .foregroundStyle(.tertiary)
             Text(value)
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .tracking(-0.3)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             Text(detail)
-                .font(.caption)
+                .font(.system(size: 11, design: .rounded))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .padding(DS.Spacing.md)
+        .background(DS.Surface.inset, in: RoundedRectangle(cornerRadius: DS.Radius.md))
+        .help("\(title): \(value) — \(detail)")
     }
 
     private func capsuleLabel(_ text: String, tint: Color) -> some View {
@@ -368,17 +456,17 @@ private struct ScreenPermissionSheet: View {
     @ObservedObject var appState: AppState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+            HStack(spacing: DS.Spacing.md) {
                 ZStack {
                     Circle()
-                        .fill(Color.orange.opacity(0.18))
+                        .fill(DS.Accent.warning.opacity(DS.Emphasis.medium))
                         .frame(width: 44, height: 44)
                     Image(systemName: "rectangle.on.rectangle.badge.person.crop")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(Color.orange)
+                        .foregroundStyle(DS.Accent.warning)
                 }
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                     Text("Allow Screen Recording")
                         .font(.title3.weight(.semibold))
                     Text("FocusLens needs this once so it can understand what is on screen. Everything stays local on your Mac.")
@@ -386,7 +474,7 @@ private struct ScreenPermissionSheet: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: DS.Spacing.smMd) {
                 Label("Snapshots are processed by your local llama.cpp server only.", systemImage: "lock.shield")
                 Label("You can choose whether screenshots are kept or deleted after classification.", systemImage: "photo.badge.checkmark")
                 Label("You can still open the dashboard and preferences before granting access.", systemImage: "slider.horizontal.3")
@@ -403,55 +491,37 @@ private struct ScreenPermissionSheet: View {
                 Button("Open Privacy Settings") {
                     ScreenCapture.openPrivacySettings()
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(DS.Accent.warning)
                 Button("Check again") {
                     appState.requestScreenPermission()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.green)
+                .tint(DS.Accent.primary)
             }
         }
-        .padding(24)
-        .background(Color(red: 0.04, green: 0.05, blue: 0.06))
+        .padding(DS.Spacing.xxl)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DS.Background.sheet)
     }
 }
 
-private struct SurfaceCard<Content: View>: View {
-    let title: String
-    let subtitle: String
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            content
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 24))
-    }
-}
 
 private struct SetupStepRow: View {
-    enum State {
+    enum StepState {
         case complete(String)
         case action(String)
     }
 
     let title: String
     let detail: String
-    let state: State
+    let state: StepState
     let action: () -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: DS.Spacing.md) {
             Circle()
-                .fill(accent.opacity(0.18))
+                .fill(accent.opacity(DS.Emphasis.medium))
                 .frame(width: 34, height: 34)
                 .overlay(
                     Image(systemName: iconName)
@@ -459,7 +529,7 @@ private struct SetupStepRow: View {
                         .foregroundStyle(accent)
                 )
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
                 Text(detail)
@@ -474,6 +544,7 @@ private struct SetupStepRow: View {
                 action()
             }
             .buttonStyle(.bordered)
+            .hoverFeedback()
             .disabled(isDisabled)
         }
     }
@@ -490,7 +561,7 @@ private struct SetupStepRow: View {
     private var accent: Color {
         switch state {
         case .complete:
-            return .green
+            return DS.Accent.primary
         case .action:
             return .white
         }

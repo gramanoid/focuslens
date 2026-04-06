@@ -44,13 +44,18 @@ final class AppState: ObservableObject {
     @Published var recentEntries: [SessionRecord] = []
     @Published var todaySummary: [CategorySummary] = []
     @Published var todaySessionCount = 0
-    @Published var showPreferences = false
     @Published var showPermissionSheet = false
     @Published var showServerHelp = false
     @Published private(set) var isCaptureInFlight = false
+    @Published var selectedModel: ModelDefinition
+    @Published var customModelPath: String
+    @Published var customMmprojPath: String
+    @Published var screenshotDirectoryPath: String
 
     let database: AppDatabase
     let llamaClient: LlamaCppClient
+    let downloadManager = ModelDownloadManager()
+    let serverProcess = ServerProcessManager()
 
     private let defaults: UserDefaults
     private var healthTask: Task<Void, Never>?
@@ -77,6 +82,12 @@ final class AppState: ObservableObject {
         launchAtLogin = defaults.object(forKey: Keys.launchAtLogin) as? Bool ?? false
         excludedAppsText = defaults.string(forKey: Keys.excludedApps) ?? ""
 
+        let savedModelID = defaults.string(forKey: Keys.selectedModelID) ?? "qwen2-vl-2b"
+        selectedModel = ModelDefinition.find(id: savedModelID) ?? ModelDefinition.recommended[0]
+        customModelPath = defaults.string(forKey: Keys.customModelPath) ?? ""
+        customMmprojPath = defaults.string(forKey: Keys.customMmprojPath) ?? ""
+        screenshotDirectoryPath = defaults.string(forKey: Keys.screenshotDirectory) ?? ""
+
         Task {
             await bootstrap()
         }
@@ -95,8 +106,33 @@ final class AppState: ObservableObject {
         )
     }
 
+    var activeModel: ModelDefinition {
+        if selectedModel.id == "custom" {
+            return ModelDefinition(
+                id: "custom",
+                displayName: "Custom",
+                modelFileName: (customModelPath as NSString).lastPathComponent,
+                mmprojFileName: (customMmprojPath as NSString).lastPathComponent,
+                modelURL: selectedModel.modelURL,
+                mmprojURL: selectedModel.mmprojURL,
+                sizeDescription: "User-provided",
+                qualityDescription: "User-provided",
+                imageMinTokens: 1024,
+                description: selectedModel.description,
+                pros: selectedModel.pros,
+                cons: selectedModel.cons
+            )
+        }
+        return selectedModel
+    }
+
     var serverStartCommand: String {
-        "llama-server -m ~/models/Qwen2-VL-2B-Instruct-Q4_K_M.gguf --mmproj ~/models/mmproj-Qwen2-VL-2B-Instruct-Q8_0.gguf --port 8080 -ngl 99"
+        let model = activeModel
+        var cmd = "llama-server -m \(model.modelPath) --mmproj \(model.mmprojPath) --port 8080 -ngl 99"
+        if model.imageMinTokens > 0 {
+            cmd += " --image-min-tokens \(model.imageMinTokens)"
+        }
+        return cmd
     }
 
     var hasCapturedSessions: Bool {
@@ -158,6 +194,12 @@ final class AppState: ObservableObject {
         }
         showPermissionSheet = !screenPermissionGranted
         await checkServerHealth()
+
+        // Auto-start server if model is ready and server isn't already running externally
+        if !serverReachable && selectedModel.isDownloaded && serverProcess.isLlamaServerInstalled {
+            serverProcess.start(model: selectedModel)
+        }
+
         startHealthChecks()
         updateScheduler()
     }
@@ -198,11 +240,26 @@ final class AppState: ObservableObject {
     }
 
     func openDashboard() {
+        dismissPopover()
         ActivityExplorerWindowController.shared.show(appState: self)
     }
 
+    func openPreferences() {
+        dismissPopover()
+        PreferencesWindowController.shared.show(appState: self)
+    }
+
+    /// Closes the MenuBarExtra popover panel so the newly opened window takes focus.
+    func dismissPopover() {
+        // MenuBarExtra(.window) creates an NSPanel that becomes keyWindow.
+        // Closing it collapses the menu bar popover.
+        if let panel = NSApp.keyWindow, panel is NSPanel {
+            panel.close()
+        }
+    }
+
     func refreshRecentEntries() {
-        recentEntries = (try? database.fetchRecentSessions(limit: 5)) ?? []
+        recentEntries = (try? database.fetchRecentSessions(limit: 3)) ?? []
     }
 
     func refreshTodaySummary() {
@@ -237,6 +294,9 @@ final class AppState: ObservableObject {
 
     func refreshPermissionState() {
         screenPermissionGranted = ScreenCapture.hasPermission()
+        if screenPermissionGranted && showPermissionSheet {
+            showPermissionSheet = false
+        }
     }
 
     func checkServerHealth() async {
@@ -285,6 +345,20 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func guessCategoryForBlankCapture(bundleID: String?) -> ActivityCategory {
+        guard let bundleID = bundleID?.lowercased() else { return .other }
+        let communicationBundles = [
+            "org.telegram", "net.whatsapp", "com.facebook.messenger",
+            "com.tinyspeck.slackmacgap", "us.zoom", "com.microsoft.teams",
+            "com.apple.MobileSMS", "com.apple.FaceTime", "com.skype",
+            "com.discord", "com.viber"
+        ]
+        if communicationBundles.contains(where: { bundleID.hasPrefix($0) }) {
+            return .communication
+        }
+        return .other
+    }
+
     private func runCaptureCycle() async {
         guard !isCaptureInFlight else { return }
         guard isRunning else { return }
@@ -308,7 +382,8 @@ final class AppState: ObservableObject {
 
         do {
             captureStatus = .capturing
-            let payload = try ScreenCapture.capture()
+            let customDir = screenshotDirectoryPath.isEmpty ? nil : screenshotDirectoryPath
+            let payload = try ScreenCapture.capture(screenshotDirectory: customDir)
             if let bundleID = payload.activeBundleID, excludedBundleIDs.contains(bundleID) {
                 if !keepScreenshots {
                     try? FileManager.default.removeItem(at: payload.screenshotURL)
@@ -317,24 +392,49 @@ final class AppState: ObservableObject {
                 return
             }
 
-            captureStatus = .classifying
-            let result = try await llamaClient.classifyImage(payload.resizedPNGData, baseURL: baseURL)
             var screenshotPath: String? = payload.screenshotURL.path
             if !keepScreenshots {
                 try? FileManager.default.removeItem(at: payload.screenshotURL)
                 screenshotPath = nil
             }
 
-            let session = SessionRecord(
-                timestamp: payload.timestamp,
-                app: result.app.isEmpty ? payload.activeAppName : result.app,
-                bundleID: payload.activeBundleID,
-                category: result.category,
-                task: result.task,
-                confidence: result.confidence,
-                screenshotPath: screenshotPath,
-                rawResponse: result.rawResponse
-            )
+            let session: SessionRecord
+            if payload.isBlankCapture {
+                // Communication apps (Telegram, WhatsApp, etc.) often render as
+                // solid black due to macOS window sharing restrictions. Record the
+                // session using the OS-reported app name instead of wasting a vision
+                // model call on a blank image.
+                let appName = AppIconResolver.displayName(for: payload.activeBundleID, fallback: payload.activeAppName)
+                let category = guessCategoryForBlankCapture(bundleID: payload.activeBundleID)
+                session = SessionRecord(
+                    timestamp: payload.timestamp,
+                    app: appName,
+                    bundleID: payload.activeBundleID,
+                    category: category,
+                    task: "Screen content obscured by \(appName)",
+                    confidence: 0.7,
+                    screenshotPath: screenshotPath,
+                    rawResponse: nil
+                )
+            } else {
+                captureStatus = .classifying
+                let result = try await llamaClient.classifyImage(
+                    payload.resizedPNGData,
+                    baseURL: baseURL,
+                    frontmostAppName: payload.activeAppName,
+                    frontmostBundleID: payload.activeBundleID
+                )
+                session = SessionRecord(
+                    timestamp: payload.timestamp,
+                    app: AppIconResolver.displayName(for: payload.activeBundleID, fallback: payload.activeAppName),
+                    bundleID: payload.activeBundleID,
+                    category: result.category,
+                    task: result.task,
+                    confidence: result.confidence,
+                    screenshotPath: screenshotPath,
+                    rawResponse: result.rawResponse
+                )
+            }
             _ = try database.saveSession(session)
             refreshRecentEntries()
             refreshTodaySummary()
@@ -346,6 +446,46 @@ final class AppState: ObservableObject {
         }
     }
 
+    func selectModel(_ model: ModelDefinition) {
+        selectedModel = model
+        defaults.set(model.id, forKey: Keys.selectedModelID)
+        if model.isDownloaded && serverProcess.isLlamaServerInstalled {
+            serverProcess.restart(model: model)
+        }
+    }
+
+    func updateCustomModelPath(_ path: String) {
+        customModelPath = path
+        defaults.set(path, forKey: Keys.customModelPath)
+    }
+
+    func updateCustomMmprojPath(_ path: String) {
+        customMmprojPath = path
+        defaults.set(path, forKey: Keys.customMmprojPath)
+    }
+
+    func updateScreenshotDirectory(_ path: String) {
+        screenshotDirectoryPath = path
+        defaults.set(path, forKey: Keys.screenshotDirectory)
+    }
+
+    func downloadAndStartModel(_ model: ModelDefinition) {
+        Task {
+            await downloadManager.download(model)
+            if downloadManager.status == .complete && serverProcess.isLlamaServerInstalled {
+                serverProcess.start(model: model)
+            }
+        }
+    }
+
+    func startServer() {
+        serverProcess.start(model: activeModel)
+    }
+
+    func stopServer() {
+        serverProcess.stop()
+    }
+
     private enum Keys {
         static let isRunning = "focuslens.isRunning"
         static let captureInterval = "focuslens.captureInterval"
@@ -353,5 +493,9 @@ final class AppState: ObservableObject {
         static let keepScreenshots = "focuslens.keepScreenshots"
         static let launchAtLogin = "focuslens.launchAtLogin"
         static let excludedApps = "focuslens.excludedApps"
+        static let selectedModelID = "focuslens.selectedModelID"
+        static let customModelPath = "focuslens.customModelPath"
+        static let customMmprojPath = "focuslens.customMmprojPath"
+        static let screenshotDirectory = "focuslens.screenshotDirectory"
     }
 }

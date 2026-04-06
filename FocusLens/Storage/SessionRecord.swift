@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import GRDB
 
@@ -38,8 +39,9 @@ struct SessionRecord: Identifiable, Codable, Hashable {
         id = row["id"]
         let timestampValue: Double = row["timestamp"] ?? 0
         timestamp = Date(timeIntervalSince1970: timestampValue)
-        app = row["app"] ?? "Unknown"
         bundleID = row["bundle_id"]
+        let storedApp: String = row["app"] ?? "Unknown"
+        app = AppIconResolver.displayName(for: bundleID, fallback: storedApp)
         let categoryValue: String = row["category"] ?? ActivityCategory.unknown.rawValue
         category = ActivityCategory(rawValue: categoryValue) ?? .unknown
         task = row["task"] ?? ""
