@@ -278,7 +278,8 @@ enum AnalysisAggregator {
     static func buildAnalysisSummary(
         sessions: [SessionRecord],
         interval: DateInterval,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        keystrokeRecords: [KeystrokeRecord] = []
     ) -> String {
         let blocks = blocks(from: sessions)
         let summaries = categorySummaries(for: blocks)
@@ -316,6 +317,33 @@ enum AnalysisAggregator {
         if let mostFragmented {
             lines.append("Most fragmented hour: \(String(format: "%02d", mostFragmented.hour)):00 with \(String(format: "%.2f", mostFragmented.averageSwitches)) switches")
         }
+
+        // Keystroke data
+        if !keystrokeRecords.isEmpty {
+            lines.append("")
+            lines.append("Keystroke activity:")
+            let totalKeys = keystrokeRecords.reduce(0) { $0 + $1.keystrokeCount }
+            lines.append("- Total keystrokes: \(totalKeys)")
+            let byApp = Dictionary(grouping: keystrokeRecords, by: \.app)
+            let topApps = byApp.map { app, records in
+                (app, records.reduce(0) { $0 + $1.keystrokeCount })
+            }
+            .sorted { $0.1 > $1.1 }
+            .prefix(5)
+            lines.append("- Top typing apps: \(topApps.map { "\($0.0) (\($0.1) keys)" }.joined(separator: ", "))")
+
+            // Sample text per top app (first 200 chars)
+            for (app, _) in topApps.prefix(3) {
+                let combinedText = byApp[app]?
+                    .map(\.typedText)
+                    .joined()
+                    .prefix(200) ?? ""
+                if !combinedText.isEmpty {
+                    lines.append("- [\(app)] sample: \"\(combinedText)\"")
+                }
+            }
+        }
+
         return lines.joined(separator: "\n")
     }
 

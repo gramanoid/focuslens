@@ -59,6 +59,19 @@ final class AppDatabase: @unchecked Sendable {
             try db.create(index: "sessions_timestamp_idx", on: "sessions", columns: ["timestamp"], ifNotExists: true)
         }
 
+        migrator.registerMigration("createKeystrokes") { db in
+            try db.create(table: "keystrokes", ifNotExists: true) { table in
+                table.autoIncrementedPrimaryKey("id")
+                table.column("session_id", .integer).notNull().references("sessions", onDelete: .cascade)
+                table.column("timestamp", .double).notNull()
+                table.column("app", .text).notNull()
+                table.column("bundle_id", .text)
+                table.column("typed_text", .text).notNull()
+                table.column("keystroke_count", .integer).notNull()
+            }
+            try db.create(index: "keystrokes_session_idx", on: "keystrokes", columns: ["session_id"], ifNotExists: true)
+        }
+
         migrator.registerMigration("createAnalyses") { db in
             try db.create(table: "analyses", ifNotExists: true) { table in
                 table.autoIncrementedPrimaryKey("id")
@@ -175,6 +188,55 @@ final class AppDatabase: @unchecked Sendable {
     func deleteAnalysis(id: Int64) throws {
         try dbQueue.write { db in
             try db.execute(sql: "DELETE FROM analyses WHERE id = ?", arguments: [id])
+        }
+    }
+
+    // MARK: - Keystrokes
+
+    func saveKeystrokes(_ records: [KeystrokeRecord]) throws {
+        guard !records.isEmpty else { return }
+        try dbQueue.write { db in
+            for record in records {
+                try db.execute(
+                    sql: """
+                    INSERT INTO keystrokes (session_id, timestamp, app, bundle_id, typed_text, keystroke_count)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    arguments: [
+                        record.sessionID,
+                        record.timestamp.timeIntervalSince1970,
+                        record.app,
+                        record.bundleID,
+                        record.typedText,
+                        record.keystrokeCount
+                    ]
+                )
+            }
+        }
+    }
+
+    func fetchKeystrokes(forSession sessionID: Int64) throws -> [KeystrokeRecord] {
+        try dbQueue.read { db in
+            try Row.fetchAll(
+                db,
+                sql: "SELECT * FROM keystrokes WHERE session_id = ? ORDER BY timestamp ASC",
+                arguments: [sessionID]
+            ).map(KeystrokeRecord.init(row:))
+        }
+    }
+
+    func fetchKeystrokes(in interval: DateInterval) throws -> [KeystrokeRecord] {
+        try dbQueue.read { db in
+            try Row.fetchAll(
+                db,
+                sql: """
+                SELECT *
+                FROM keystrokes
+                WHERE timestamp >= ? AND timestamp < ?
+                ORDER BY timestamp ASC
+                """,
+                arguments: [interval.start.timeIntervalSince1970, interval.end.timeIntervalSince1970]
+            ).map(KeystrokeRecord.init(row:))
         }
     }
 }

@@ -45,17 +45,29 @@ extension LlamaCppClient {
         _ data: Data,
         baseURL: URL,
         frontmostAppName: String,
-        frontmostBundleID: String?
+        frontmostBundleID: String?,
+        keystrokeContext: String? = nil
     ) async throws -> ClassificationResult {
-        let prompt = """
-        You are classifying a macOS screenshot.
-        The frontmost app reported by the OS is "\(frontmostAppName)".
-        Bundle ID: "\(frontmostBundleID ?? "unknown")".
-        Use the OS-reported app name exactly unless it is obviously wrong.
-        Do not invent or OCR a variant of the app name.
-        If screen text is small or uncertain, keep the task description broad and avoid guessing product names.
+        var promptParts = [
+            """
+            You are classifying a macOS screenshot.
+            The frontmost app reported by the OS is "\(frontmostAppName)".
+            Bundle ID: "\(frontmostBundleID ?? "unknown")".
+            Use the OS-reported app name exactly unless it is obviously wrong.
+            Do not invent or OCR a variant of the app name.
+            If screen text is small or uncertain, keep the task description broad and avoid guessing product names.
+            """
+        ]
+
+        if let keystrokeContext {
+            promptParts.append(keystrokeContext)
+        }
+
+        promptParts.append("""
         Respond ONLY with valid JSON: {"app": "<app name>", "category": "<coding|writing|browsing|communication|media|design|other>", "task": "<one sentence description>", "confidence": <0.0-1.0>}
-        """
+        """)
+
+        let prompt = promptParts.joined(separator: "\n")
 
         let base64Image = data.base64EncodedString()
         let payload = ChatRequest(

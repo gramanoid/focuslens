@@ -75,7 +75,12 @@ final class ServerProcessManager: ObservableObject {
 
         errPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
-            guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
+            guard !data.isEmpty else {
+                // EOF — pipe closed (process exited). Clear handler to prevent spin-loop.
+                handle.readabilityHandler = nil
+                return
+            }
+            guard let text = String(data: data, encoding: .utf8) else { return }
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.lastStdErr += text
@@ -92,6 +97,8 @@ final class ServerProcessManager: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self, self.process === proc else { return }
+                // Clean up pipe handler to prevent spin-loop on EOF
+                self.stderrPipe?.fileHandleForReading.readabilityHandler = nil
                 let code = proc.terminationStatus
                 if code != 0 && self.status != .stopped {
                     self.status = .failed("llama-server exited (\(code))")

@@ -47,6 +47,8 @@ final class AppState: ObservableObject {
     @Published var showPermissionSheet = false
     @Published var showServerHelp = false
     @Published private(set) var isCaptureInFlight = false
+    @Published var accessibilityPermissionGranted = false
+    @Published var keystrokeTrackingEnabled: Bool
     @Published var selectedModel: ModelDefinition
     @Published var customModelPath: String
     @Published var customMmprojPath: String
@@ -56,6 +58,7 @@ final class AppState: ObservableObject {
     let llamaClient: LlamaCppClient
     let downloadManager = ModelDownloadManager()
     let serverProcess = ServerProcessManager()
+    let keystrokeMonitor = KeystrokeMonitor()
 
     private let defaults: UserDefaults
     private var healthTask: Task<Void, Never>?
@@ -81,6 +84,8 @@ final class AppState: ObservableObject {
         keepScreenshots = defaults.object(forKey: Keys.keepScreenshots) as? Bool ?? true
         launchAtLogin = defaults.object(forKey: Keys.launchAtLogin) as? Bool ?? false
         excludedAppsText = defaults.string(forKey: Keys.excludedApps) ?? ""
+
+        keystrokeTrackingEnabled = defaults.object(forKey: Keys.keystrokeTrackingEnabled) as? Bool ?? true
 
         let savedModelID = defaults.string(forKey: Keys.selectedModelID) ?? "qwen2-vl-2b"
         selectedModel = ModelDefinition.find(id: savedModelID) ?? ModelDefinition.recommended[0]
@@ -152,15 +157,15 @@ final class AppState: ObservableObject {
     }
 
     var setupCompletedSteps: Int {
-        [screenPermissionGranted, serverReachable, hasCapturedSessions].filter { $0 }.count
+        [screenPermissionGranted, accessibilityPermissionGranted, serverReachable, hasCapturedSessions].filter { $0 }.count
     }
 
     var setupProgress: Double {
-        Double(setupCompletedSteps) / 3.0
+        Double(setupCompletedSteps) / 4.0
     }
 
     var needsOnboarding: Bool {
-        !screenPermissionGranted || !serverReachable || !hasCapturedSessions
+        !screenPermissionGranted || !accessibilityPermissionGranted || !serverReachable || !hasCapturedSessions
     }
 
     var isReadyForImmediateCapture: Bool {
@@ -200,6 +205,11 @@ final class AppState: ObservableObject {
             serverProcess.start(model: selectedModel)
         }
 
+        // Auto-start keystroke monitor if enabled and permitted
+        if keystrokeTrackingEnabled && accessibilityPermissionGranted {
+            keystrokeMonitor.start(excludedBundleIDs: excludedBundleIDs)
+        }
+
         startHealthChecks()
         updateScheduler()
     }
@@ -231,6 +241,7 @@ final class AppState: ObservableObject {
     func updateExcludedApps(_ value: String) {
         excludedAppsText = value
         defaults.set(value, forKey: Keys.excludedApps)
+        keystrokeMonitor.updateExcludedApps(excludedBundleIDs)
     }
 
     func updateLaunchAtLogin(_ enabled: Bool) {
@@ -294,8 +305,24 @@ final class AppState: ObservableObject {
 
     func refreshPermissionState() {
         screenPermissionGranted = ScreenCapture.hasPermission()
+        accessibilityPermissionGranted = KeystrokeMonitor.hasAccessibilityPermission()
         if screenPermissionGranted && showPermissionSheet {
             showPermissionSheet = false
+        }
+    }
+
+    func requestAccessibilityPermission() {
+        KeystrokeMonitor.requestAccessibilityPermission()
+        refreshPermissionState()
+    }
+
+    func updateKeystrokeTracking(_ enabled: Bool) {
+        keystrokeTrackingEnabled = enabled
+        defaults.set(enabled, forKey: Keys.keystrokeTrackingEnabled)
+        if enabled && accessibilityPermissionGranted {
+            keystrokeMonitor.start(excludedBundleIDs: excludedBundleIDs)
+        } else {
+            keystrokeMonitor.stop()
         }
     }
 
@@ -319,7 +346,11 @@ final class AppState: ObservableObject {
         healthTask = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.checkServerHealth()
-                try? await Task.sleep(nanoseconds: 30 * 1_000_000_000)
+                do {
+                    try await Task.sleep(nanoseconds: 30 * 1_000_000_000)
+                } catch {
+                    break // CancellationError — exit cleanly
+                }
             }
         }
     }
@@ -382,6 +413,11 @@ final class AppState: ObservableObject {
 
         do {
             captureStatus = .capturing
+
+            // Flush keystroke buffer before capture
+            let keystrokeSegments = keystrokeMonitor.flush()
+            let keystrokeContext = Self.buildKeystrokeContext(from: keystrokeSegments)
+
             let customDir = screenshotDirectoryPath.isEmpty ? nil : screenshotDirectoryPath
             let payload = try ScreenCapture.capture(screenshotDirectory: customDir)
             if let bundleID = payload.activeBundleID, excludedBundleIDs.contains(bundleID) {
@@ -400,10 +436,6 @@ final class AppState: ObservableObject {
 
             let session: SessionRecord
             if payload.isBlankCapture {
-                // Communication apps (Telegram, WhatsApp, etc.) often render as
-                // solid black due to macOS window sharing restrictions. Record the
-                // session using the OS-reported app name instead of wasting a vision
-                // model call on a blank image.
                 let appName = AppIconResolver.displayName(for: payload.activeBundleID, fallback: payload.activeAppName)
                 let category = guessCategoryForBlankCapture(bundleID: payload.activeBundleID)
                 session = SessionRecord(
@@ -422,7 +454,8 @@ final class AppState: ObservableObject {
                     payload.resizedPNGData,
                     baseURL: baseURL,
                     frontmostAppName: payload.activeAppName,
-                    frontmostBundleID: payload.activeBundleID
+                    frontmostBundleID: payload.activeBundleID,
+                    keystrokeContext: keystrokeContext
                 )
                 session = SessionRecord(
                     timestamp: payload.timestamp,
@@ -435,7 +468,23 @@ final class AppState: ObservableObject {
                     rawResponse: result.rawResponse
                 )
             }
-            _ = try database.saveSession(session)
+            let savedSession = try database.saveSession(session)
+
+            // Save keystroke records linked to this session
+            if let sessionID = savedSession.id, !keystrokeSegments.isEmpty {
+                let records = keystrokeSegments.map { segment in
+                    KeystrokeRecord(
+                        sessionID: sessionID,
+                        timestamp: segment.startTime,
+                        app: segment.app,
+                        bundleID: segment.bundleID,
+                        typedText: segment.text,
+                        keystrokeCount: segment.keystrokeCount
+                    )
+                }
+                try? database.saveKeystrokes(records)
+            }
+
             refreshRecentEntries()
             refreshTodaySummary()
             captureStatus = .idle
@@ -486,6 +535,19 @@ final class AppState: ObservableObject {
         serverProcess.stop()
     }
 
+    static func buildKeystrokeContext(from segments: [KeystrokeSegment]) -> String? {
+        guard !segments.isEmpty else { return nil }
+        var lines: [String] = ["Keystroke activity since last capture:"]
+        for segment in segments {
+            let preview = String(segment.text.prefix(500))
+                .replacingOccurrences(of: "\n", with: " ")
+                .replacingOccurrences(of: "\r", with: "")
+            lines.append("- [\(segment.app)] \(segment.keystrokeCount) keystrokes: \"\(preview)\"")
+        }
+        lines.append("Use this typed text alongside the screenshot to determine what the user is doing.")
+        return lines.joined(separator: "\n")
+    }
+
     private enum Keys {
         static let isRunning = "focuslens.isRunning"
         static let captureInterval = "focuslens.captureInterval"
@@ -497,5 +559,6 @@ final class AppState: ObservableObject {
         static let customModelPath = "focuslens.customModelPath"
         static let customMmprojPath = "focuslens.customMmprojPath"
         static let screenshotDirectory = "focuslens.screenshotDirectory"
+        static let keystrokeTrackingEnabled = "focuslens.keystrokeTrackingEnabled"
     }
 }

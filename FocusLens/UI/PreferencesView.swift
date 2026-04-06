@@ -49,6 +49,10 @@ struct PreferencesView: View {
                     tint: appState.serverReachable ? DS.Accent.primary : DS.Accent.warning
                 )
                 preferenceStatusChip(
+                    title: appState.keystrokeMonitor.isMonitoring ? "Keystrokes active" : "Keystrokes off",
+                    tint: appState.keystrokeMonitor.isMonitoring ? DS.Accent.primary : .secondary
+                )
+                preferenceStatusChip(
                     title: appState.launchAtLogin ? "Starts at login" : "Manual launch",
                     tint: appState.launchAtLogin ? DS.Accent.primary : .secondary
                 )
@@ -80,6 +84,41 @@ struct PreferencesView: View {
                             .hoverFeedback()
                         }
                     }
+                }
+
+                Toggle(isOn: Binding(
+                    get: { appState.keystrokeTrackingEnabled },
+                    set: { appState.updateKeystrokeTracking($0) }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Keystroke tracking")
+                        Text("Records what you type to enrich AI classification. Requires Accessibility permission.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if appState.keystrokeTrackingEnabled && !appState.accessibilityPermissionGranted {
+                    HStack(spacing: DS.Spacing.sm) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(DS.Accent.warning)
+                        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                            Text("Accessibility permission required")
+                                .font(.subheadline.weight(.medium))
+                            Text("FocusLens needs Input Monitoring access to record keystrokes.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Grant Access") {
+                            appState.requestAccessibilityPermission()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(DS.Accent.warning)
+                    }
+                    .padding(DS.Spacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(DS.Accent.warning.opacity(DS.Emphasis.subtle), in: RoundedRectangle(cornerRadius: DS.Radius.md))
                 }
 
                 Toggle(isOn: Binding(
@@ -367,6 +406,8 @@ struct PreferencesView: View {
                 Label("All inference stays on your Mac.", systemImage: "lock.shield")
                 Label("No cloud APIs. No telemetry.", systemImage: "wifi.slash")
                 Label("Screenshots are optional and stored in Application Support.", systemImage: "internaldrive")
+                Label("Keystrokes are stored locally and never leave your Mac.", systemImage: "keyboard")
+                Label("Password fields are automatically skipped.", systemImage: "lock.rectangle")
             }
             .font(.caption)
             .foregroundStyle(.secondary)

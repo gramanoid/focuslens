@@ -128,6 +128,16 @@ struct MenuBarPopover: View {
                 )
 
                 SetupStepRow(
+                    title: "Allow Accessibility (Keystrokes)",
+                    detail: "Records what you type alongside screenshots for richer analysis. Password fields are automatically skipped.",
+                    state: appState.accessibilityPermissionGranted ? .complete("Allowed") : .action("Grant access"),
+                    action: {
+                        if appState.accessibilityPermissionGranted { return }
+                        appState.requestAccessibilityPermission()
+                    }
+                )
+
+                SetupStepRow(
                     title: "Connect your local model",
                     detail: modelSetupDetail,
                     state: modelSetupState,
@@ -307,7 +317,10 @@ struct MenuBarPopover: View {
         HStack {
             Label("100% local", systemImage: "lock.shield")
             Spacer()
-            Label(appState.keepScreenshots ? "Keeping screenshots" : "Auto-deleting screenshots", systemImage: appState.keepScreenshots ? "photo.on.rectangle" : "trash")
+            if appState.keystrokeMonitor.isMonitoring {
+                Label("Keystrokes", systemImage: "keyboard")
+            }
+            Label(appState.keepScreenshots ? "Screenshots" : "No screenshots", systemImage: appState.keepScreenshots ? "photo.on.rectangle" : "trash")
         }
         .font(.caption)
         .foregroundStyle(.secondary)
