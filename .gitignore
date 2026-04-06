@@ -1,12 +1,37 @@
+# macOS
 .DS_Store
-.codex/
-.memory/
-.build/
-.swiftpm/
-openspec/
-Packages/
+.AppleDouble
+.LSOverride
+._*
+
+# Xcode
 DerivedData/
 xcuserdata/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 FocusLens.xcodeproj/project.xcworkspace/xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# SwiftPM
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# Project tooling
+.codex/
+.memory/
+openspec/
+
+# Build artifacts
+*.dmg
+*.app
+*.zip
