@@ -28,7 +28,7 @@ struct MenuBarPopover: View {
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                     HStack(spacing: DS.Spacing.sm) {
                         ZStack {
                             Circle()
@@ -56,7 +56,7 @@ struct MenuBarPopover: View {
                                     .foregroundStyle(heroAccent)
                             }
                         }
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                             Text("FocusLens")
                                 .font(.system(size: 28, weight: .bold, design: .rounded))
                                 .tracking(-0.5)
@@ -193,7 +193,7 @@ struct MenuBarPopover: View {
                             let fraction = CGFloat(summary.duration / totalDuration)
                             let barWidth = max(4, usableWidth * fraction)
                             let rect = CGRect(x: x, y: 0, width: barWidth, height: size.height)
-                            context.fill(Path(roundedRect: rect, cornerRadius: 6), with: .color(summary.category.color))
+                            context.fill(Path(roundedRect: rect, cornerRadius: DS.Radius.sm / 2), with: .color(summary.category.color))
                             x += barWidth + gap
                         }
                     }
@@ -240,7 +240,7 @@ struct MenuBarPopover: View {
                             Image(nsImage: AppIconResolver.icon(for: entry.bundleID))
                                 .resizable()
                                 .frame(width: 26, height: 26)
-                                .clipShape(RoundedRectangle(cornerRadius: 7))
+                                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm / 2))
 
                             VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                                 HStack {
@@ -329,7 +329,7 @@ struct MenuBarPopover: View {
         }
         .font(.caption)
         .foregroundStyle(.secondary)
-        .padding(.horizontal, 4)
+        .padding(.horizontal, DS.Spacing.xs)
     }
 
     private var captureCountDetail: String {
@@ -383,7 +383,7 @@ struct MenuBarPopover: View {
             return "Everything is connected. Take the first snapshot now or wait for the next scheduled interval."
         }
         if let lastCapturedAt = appState.lastCapturedAt {
-            let timeAgo = RelativeDateTimeFormatter().localizedString(for: lastCapturedAt, relativeTo: .now)
+            let timeAgo = Self.relativeDateFormatter.localizedString(for: lastCapturedAt, relativeTo: .now)
             return "\(timeOfDayGreeting). Last snapshot \(timeAgo)."
         }
         return "\(timeOfDayGreeting). FocusLens is running in the background."
@@ -410,10 +410,15 @@ struct MenuBarPopover: View {
             return "Downloading \(appState.selectedModel.displayName)..."
         }
         if appState.selectedModel.isDownloaded {
-            return "\(appState.selectedModel.displayName) is ready. Tap to start."
+            return "\(appState.selectedModel.displayName) is ready. Click to start."
         }
         return "Download \(appState.selectedModel.displayName) (\(appState.selectedModel.sizeDescription))."
     }
+
+    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        return f
+    }()
 
     private var modelSetupState: SetupStepRow.StepState {
         if appState.serverReachable { return .complete("Connected") }
@@ -434,8 +439,8 @@ struct MenuBarPopover: View {
             Text(text)
                 .font(.caption.weight(.semibold))
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, DS.Spacing.smMd)
+        .padding(.vertical, DS.Spacing.sm)
         .background(tone.opacity(DS.Emphasis.subtle), in: Capsule())
     }
 
@@ -464,8 +469,8 @@ struct MenuBarPopover: View {
     private func capsuleLabel(_ text: String, tint: Color) -> some View {
         Text(text)
             .font(.system(size: 11, weight: .medium, design: .rounded))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, DS.Spacing.sm)
+            .padding(.vertical, DS.Spacing.xs)
             .background(tint, in: Capsule())
     }
 }

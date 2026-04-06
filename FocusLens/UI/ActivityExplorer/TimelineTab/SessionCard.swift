@@ -9,7 +9,7 @@ struct SessionCard: View {
     @State private var thumbnailHovered = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .top, spacing: DS.Spacing.lg) {
             VStack(spacing: 0) {
                 Capsule()
                     .fill(block.category.color)
@@ -23,11 +23,11 @@ struct SessionCard: View {
                     .frame(width: 4, height: connectsToNext ? 44 : 6)
                     .opacity(connectsToNext ? 1 : 0.35)
             }
-            .padding(.top, 8)
+            .padding(.top, DS.Spacing.sm)
 
             VStack(alignment: .leading, spacing: DS.Spacing.smMd) {
                 HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                         Text("\(block.start.formatted(date: .omitted, time: .shortened)) → \(block.end.formatted(date: .omitted, time: .shortened))")
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
                             .foregroundStyle(.tertiary)
@@ -36,13 +36,13 @@ struct SessionCard: View {
                             Image(nsImage: AppIconResolver.icon(for: block.bundleID))
                                 .resizable()
                                 .frame(width: 32, height: 32)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
                             Text(block.app)
                                 .font(.system(.headline, design: .rounded, weight: .bold))
                             Text(block.category.title)
                                 .font(.caption.weight(.semibold))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
+                                .padding(.horizontal, DS.Spacing.sm)
+                                .padding(.vertical, DS.Spacing.xs)
                                 .background(block.category.color.opacity(DS.Emphasis.medium), in: Capsule())
                         }
                     }
@@ -85,7 +85,7 @@ struct SessionCard: View {
                         .accessibilityLabel(expanded ? "Collapse details" : "Expand details")
                     }
 
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                         HStack {
                             Text("Confidence")
                                 .font(.caption)

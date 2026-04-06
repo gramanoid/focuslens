@@ -7,7 +7,7 @@ struct SummaryCards: View {
     let contextSwitches: String
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 14)], spacing: 14) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: DS.Spacing.lg)], spacing: DS.Spacing.lg) {
             SummaryCard(title: "Total Tracked Time", value: totalTrackedTime)
             SummaryCard(title: "Most Used App", value: mostUsedApp)
             SummaryCard(title: "Longest Focus Session", value: longestFocusSession)

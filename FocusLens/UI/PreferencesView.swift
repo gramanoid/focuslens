@@ -6,7 +6,7 @@ struct PreferencesView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: DS.Spacing.xl) {
                 headerSection
                 trackingSection
                 serverSection
@@ -62,7 +62,7 @@ struct PreferencesView: View {
 
     private var trackingSection: some View {
         SurfaceCard(title: "Tracking", subtitle: "Choose how often FocusLens samples your screen and how much history it keeps.") {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                 VStack(alignment: .leading, spacing: DS.Spacing.smMd) {
                     Text("Capture interval")
                         .font(.subheadline.weight(.medium))
@@ -74,7 +74,7 @@ struct PreferencesView: View {
                                 Text(option.title)
                                     .font(.caption.weight(.semibold))
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 10)
+                                    .padding(.vertical, DS.Spacing.smMd)
                                     .background(
                                         appState.captureInterval == option ? DS.Accent.primary.opacity(DS.Emphasis.strong) : DS.Surface.card,
                                         in: RoundedRectangle(cornerRadius: DS.Radius.sm)
@@ -90,7 +90,7 @@ struct PreferencesView: View {
                     get: { appState.keystrokeTrackingEnabled },
                     set: { appState.updateKeystrokeTracking($0) }
                 )) {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                         Text("Keystroke tracking")
                         Text("Records what you type to enrich AI classification. Requires Accessibility permission.")
                             .font(.caption)
@@ -125,7 +125,7 @@ struct PreferencesView: View {
                     get: { appState.keepScreenshots },
                     set: { appState.updateKeepScreenshots($0) }
                 )) {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                         Text("Keep screenshots")
                         Text("Disable this if you only want classifications and not the original images.")
                             .font(.caption)
@@ -439,8 +439,8 @@ struct PreferencesView: View {
     private func preferenceStatusChip(title: String, tint: Color) -> some View {
         Text(title)
             .font(.caption.weight(.semibold))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, DS.Spacing.smMd)
+            .padding(.vertical, DS.Spacing.sm)
             .background(tint.opacity(DS.Emphasis.subtle), in: Capsule())
     }
 }
