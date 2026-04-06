@@ -15,7 +15,7 @@ final class CaptureScheduler {
     }
 
     func start() {
-        guard timer == nil else { return }
+        stop()
         trigger()
     }
 

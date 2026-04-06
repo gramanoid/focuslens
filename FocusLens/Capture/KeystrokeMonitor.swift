@@ -40,7 +40,7 @@ final class KeystrokeMonitor: ObservableObject {
     }
 
     func start(excludedBundleIDs: Set<String>) {
-        guard monitor == nil else { return }
+        stop()
         guard Self.hasAccessibilityPermission() else { return }
 
         self.excludedBundleIDs = excludedBundleIDs

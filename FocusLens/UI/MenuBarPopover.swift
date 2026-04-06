@@ -286,20 +286,35 @@ struct MenuBarPopover: View {
     }
 
     private var secondaryActions: some View {
-        HStack(spacing: DS.Spacing.smMd) {
-            Button(appState.isRunning ? "Pause Tracking" : "Resume Tracking") {
-                appState.toggleRunning()
-            }
-            .buttonStyle(.bordered)
-            .hoverFeedback()
-            .frame(maxWidth: .infinity)
+        VStack(spacing: DS.Spacing.sm) {
+            HStack(spacing: DS.Spacing.smMd) {
+                Button(appState.isRunning ? "Pause Tracking" : "Resume Tracking") {
+                    appState.toggleRunning()
+                }
+                .buttonStyle(.bordered)
+                .hoverFeedback()
+                .frame(maxWidth: .infinity)
 
-            Button("Preferences") {
-                appState.openPreferences()
+                Button("Preferences") {
+                    appState.openPreferences()
+                }
+                .buttonStyle(.bordered)
+                .hoverFeedback()
+                .frame(maxWidth: .infinity)
+            }
+
+            Button {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                HStack(spacing: DS.Spacing.sm) {
+                    Image(systemName: "power")
+                    Text("Quit FocusLens")
+                }
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .hoverFeedback()
-            .frame(maxWidth: .infinity)
+            .keyboardShortcut("q")
         }
     }
 

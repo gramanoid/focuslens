@@ -112,11 +112,10 @@ final class ServerProcessManager: ObservableObject {
         do {
             try proc.run()
             process = proc
-            Task {
+            Task { @MainActor [weak self] in
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
-                if self.process != nil && self.status == .starting {
-                    self.status = .running
-                }
+                guard let self, self.process === proc, self.status == .starting else { return }
+                self.status = .running
             }
         } catch {
             status = .failed("Launch failed: \(error.localizedDescription)")
@@ -124,24 +123,22 @@ final class ServerProcessManager: ObservableObject {
     }
 
     func stop() {
-        guard let proc = process, proc.isRunning else {
-            process = nil
-            if status != .stopped { status = .stopped }
-            return
+        if let proc = process, proc.isRunning {
+            proc.terminate()
+            DispatchQueue.global().asyncAfter(deadline: .now() + 3) { [weak proc] in
+                if let proc, proc.isRunning { proc.interrupt() }
+            }
         }
 
-        proc.terminate()
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3) { [weak proc] in
-            if let proc, proc.isRunning { proc.interrupt() }
-        }
-
+        // Always clean up resources regardless of process state
         if let observer = terminationObserver {
             NotificationCenter.default.removeObserver(observer)
-            terminationObserver = nil
         }
+        terminationObserver = nil
         stderrPipe?.fileHandleForReading.readabilityHandler = nil
+        stderrPipe = nil
         process = nil
-        status = .stopped
+        if status != .stopped { status = .stopped }
     }
 
     func restart(model: ModelDefinition, port: Int = 8080) {

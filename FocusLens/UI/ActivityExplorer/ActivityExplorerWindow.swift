@@ -54,6 +54,8 @@ final class ActivityExplorerViewModel: ObservableObject {
     @Published var isGeneratingAnalysis = false
     @Published var exportError: String?
 
+    private var analysisTask: Task<Void, Never>?
+
     // Cached derived data — updated in reloadRange()/reloadDay(), not on every render.
     @Published private(set) var cachedRangeBlocks: [SessionBlock] = []
     @Published private(set) var cachedCategorySummaries: [CategorySummary] = []
@@ -190,8 +192,9 @@ final class ActivityExplorerViewModel: ObservableObject {
 
         isGeneratingAnalysis = true
         analysisResponse = ""
+        analysisTask?.cancel()
 
-        Task {
+        analysisTask = Task {
             do {
                 let systemPrompt = """
                 You are a productivity coach analyzing work session data captured from a user's Mac.
