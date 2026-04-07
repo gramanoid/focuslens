@@ -29,22 +29,7 @@ enum ScreenCaptureError: LocalizedError {
 
 enum ScreenCapture {
     static func hasPermission() -> Bool {
-        // CGPreflightScreenCaptureAccess can return stale results after the user
-        // toggles the permission in System Settings. Fall back to attempting a
-        // minimal capture as a ground-truth check.
-        if CGPreflightScreenCaptureAccess() {
-            return true
-        }
-        // Try a 1x1 capture — if it succeeds, the permission is actually granted
-        // even though the preflight API hasn't caught up yet.
-        let testRect = CGRect(x: 0, y: 0, width: 1, height: 1)
-        return CGWindowListCreateImage(testRect, .optionOnScreenOnly, kCGNullWindowID, []) != nil
-    }
-
-    @discardableResult
-    static func requestPermission() -> Bool {
-        guard !hasPermission() else { return true }
-        return CGRequestScreenCaptureAccess()
+        CGPreflightScreenCaptureAccess()
     }
 
     static func openPrivacySettings() {
