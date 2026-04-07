@@ -21,9 +21,6 @@ struct MenuBarPopover: View {
         }
         .frame(width: 410, height: 480)
         .background(DS.Background.primary)
-        .sheet(isPresented: $appState.showPermissionSheet) {
-            ScreenPermissionSheet(appState: appState)
-        }
     }
 
     private var heroSection: some View {
@@ -121,10 +118,8 @@ struct MenuBarPopover: View {
                     detail: "FocusLens captures locally on your Mac and never sends screenshots off-device.",
                     state: appState.screenPermissionGranted ? .complete("Allowed") : .action("Open settings"),
                     action: {
-                        if appState.screenPermissionGranted {
-                            return
-                        }
-                        appState.showPermissionSheet = true
+                        if appState.screenPermissionGranted { return }
+                        ScreenCapture.openPrivacySettings()
                     }
                 )
 
@@ -475,61 +470,6 @@ struct MenuBarPopover: View {
             .background(tint, in: Capsule())
     }
 }
-
-private struct ScreenPermissionSheet: View {
-    @ObservedObject var appState: AppState
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-            HStack(spacing: DS.Spacing.md) {
-                ZStack {
-                    Circle()
-                        .fill(DS.Accent.warning.opacity(DS.Emphasis.medium))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "rectangle.on.rectangle.badge.person.crop")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(DS.Accent.warning)
-                }
-                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                    Text("Allow Screen Recording")
-                        .font(.title3.weight(.semibold))
-                    Text("FocusLens needs this once so it can understand what is on screen. Everything stays local on your Mac.")
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: DS.Spacing.smMd) {
-                Label("Snapshots are processed by your local llama.cpp server only.", systemImage: "lock.shield")
-                Label("You can choose whether screenshots are kept or deleted after classification.", systemImage: "photo.badge.checkmark")
-                Label("You can still open the dashboard and preferences before granting access.", systemImage: "slider.horizontal.3")
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            HStack {
-                Button("Not now") {
-                    appState.dismissPermissionSheet()
-                }
-                .buttonStyle(.bordered)
-                Spacer()
-                Button("Open Privacy Settings") {
-                    ScreenCapture.openPrivacySettings()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(DS.Accent.warning)
-                Button("Check again") {
-                    appState.requestScreenPermission()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(DS.Accent.primary)
-            }
-        }
-        .padding(DS.Spacing.xxl)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(DS.Background.sheet)
-    }
-}
-
 
 private struct SetupStepRow: View {
     enum StepState {
