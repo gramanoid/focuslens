@@ -28,7 +28,7 @@ struct FocusLensApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarPopover(appState: appState)
+            MenuBarPopover(appState: appState, keystrokeMonitor: appState.keystrokeMonitor)
                 .environmentObject(appState)
         } label: {
             StatusMenuBarLabel(status: appState.captureStatus, serverReachable: appState.serverReachable)

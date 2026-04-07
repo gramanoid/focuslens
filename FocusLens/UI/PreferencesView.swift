@@ -2,6 +2,8 @@ import SwiftUI
 
 struct PreferencesView: View {
     @ObservedObject var appState: AppState
+    @ObservedObject var updater: AppUpdater
+    @ObservedObject var keystrokeMonitor: KeystrokeMonitor
     var onClose: (() -> Void)? = nil
 
     var body: some View {
@@ -431,15 +433,15 @@ struct PreferencesView: View {
                     Text("Current version")
                         .font(.subheadline.weight(.medium))
                     Spacer()
-                    Text(appState.updater.currentVersion)
+                    Text(updater.currentVersion)
                         .font(.subheadline.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
 
-                switch appState.updater.status {
+                switch updater.status {
                 case .idle:
                     Button("Check for Updates") {
-                        Task { await appState.updater.checkForUpdates() }
+                        Task { await updater.checkForUpdates() }
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(DS.Accent.primary)
@@ -462,7 +464,7 @@ struct PreferencesView: View {
                             .font(.subheadline)
                     }
                     Button("Check Again") {
-                        Task { await appState.updater.checkForUpdates() }
+                        Task { await updater.checkForUpdates() }
                     }
                     .buttonStyle(.bordered)
                     .hoverFeedback()
@@ -485,7 +487,7 @@ struct PreferencesView: View {
                                 .background(DS.Surface.inset, in: RoundedRectangle(cornerRadius: DS.Radius.md))
                         }
                         Button("Download & Install") {
-                            Task { await appState.updater.downloadAndInstall(url: url) }
+                            Task { await updater.downloadAndInstall(url: url) }
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(DS.Accent.primary)
@@ -524,7 +526,7 @@ struct PreferencesView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Button("Retry") {
-                            Task { await appState.updater.checkForUpdates() }
+                            Task { await updater.checkForUpdates() }
                         }
                         .buttonStyle(.bordered)
                         .hoverFeedback()
@@ -549,14 +551,14 @@ struct PreferencesView: View {
     }
 
     private var keystrokeChipTitle: String {
-        if appState.keystrokeMonitor.isMonitoring { return "Keystrokes active" }
+        if keystrokeMonitor.isMonitoring { return "Keystrokes active" }
         if appState.keystrokeTrackingEnabled && !appState.accessibilityPermissionGranted { return "Keystrokes need permission" }
         if !appState.keystrokeTrackingEnabled { return "Keystrokes disabled" }
         return "Keystrokes off"
     }
 
     private var keystrokeChipTint: Color {
-        if appState.keystrokeMonitor.isMonitoring { return DS.Accent.primary }
+        if keystrokeMonitor.isMonitoring { return DS.Accent.primary }
         if appState.keystrokeTrackingEnabled && !appState.accessibilityPermissionGranted { return DS.Accent.warning }
         return .secondary
     }

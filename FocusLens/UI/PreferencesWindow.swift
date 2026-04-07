@@ -16,7 +16,7 @@ final class PreferencesWindowController: NSWindowController {
     @MainActor
     func show(appState: AppState) {
         if window == nil {
-            let rootView = PreferencesView(appState: appState) { [weak self] in
+            let rootView = PreferencesView(appState: appState, updater: appState.updater, keystrokeMonitor: appState.keystrokeMonitor) { [weak self] in
                 self?.window?.performClose(nil)
             }
             let hostingController = NSHostingController(rootView: AnyView(rootView))
@@ -33,7 +33,7 @@ final class PreferencesWindowController: NSWindowController {
             self.window = window
         } else if let hostingController = window?.contentViewController as? NSHostingController<AnyView> {
             hostingController.rootView = AnyView(
-                PreferencesView(appState: appState) { [weak self] in
+                PreferencesView(appState: appState, updater: appState.updater, keystrokeMonitor: appState.keystrokeMonitor) { [weak self] in
                     self?.window?.performClose(nil)
                 }
             )

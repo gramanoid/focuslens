@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MenuBarPopover: View {
     @ObservedObject var appState: AppState
+    @ObservedObject var keystrokeMonitor: KeystrokeMonitor
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -322,7 +323,7 @@ struct MenuBarPopover: View {
         HStack {
             Label("100% local", systemImage: "lock.shield")
             Spacer()
-            if appState.keystrokeMonitor.isMonitoring {
+            if keystrokeMonitor.isMonitoring {
                 Label("Keystrokes", systemImage: "keyboard")
             }
             Label(appState.keepScreenshots ? "Screenshots" : "No screenshots", systemImage: appState.keepScreenshots ? "photo.on.rectangle" : "trash")
