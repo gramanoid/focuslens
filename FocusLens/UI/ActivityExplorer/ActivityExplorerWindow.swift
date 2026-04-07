@@ -242,10 +242,12 @@ final class ActivityExplorerViewModel: ObservableObject {
         reloadAnalyses()
     }
 
+    private static let isoFormatter = ISO8601DateFormatter()
+
     private func exportPayload(for format: ExportFormat) throws -> Data {
         switch format {
         case .csv:
-            let dateFormatter = ISO8601DateFormatter()
+            let dateFormatter = Self.isoFormatter
             var lines = ["timestamp,app,bundle_id,category,task,confidence,screenshot_path"]
             for session in rangeSessions {
                 lines.append(

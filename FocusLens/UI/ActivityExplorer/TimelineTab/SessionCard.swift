@@ -24,6 +24,7 @@ struct SessionCard: View {
                     .opacity(connectsToNext ? 1 : 0.35)
             }
             .padding(.top, DS.Spacing.sm)
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: DS.Spacing.smMd) {
                 HStack(alignment: .top) {
@@ -37,6 +38,7 @@ struct SessionCard: View {
                                 .resizable()
                                 .frame(width: 32, height: 32)
                                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                                .accessibilityLabel("\(block.app) icon")
                             Text(block.app)
                                 .font(.system(.headline, design: .rounded, weight: .bold))
                             Text(block.category.title)

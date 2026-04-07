@@ -439,7 +439,7 @@ struct PreferencesView: View {
     }
 
     private var appSection: some View {
-        SurfaceCard(title: "App behavior", subtitle: "Keep FocusLens close at hand without demanding attention.") {
+        SurfaceCard(title: "App Behavior", subtitle: "Keep FocusLens running quietly in the background.") {
             Toggle(isOn: Binding(
                 get: { appState.launchAtLogin },
                 set: { appState.updateLaunchAtLogin($0) }

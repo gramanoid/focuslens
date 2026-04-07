@@ -237,6 +237,7 @@ struct MenuBarPopover: View {
                                 .resizable()
                                 .frame(width: 26, height: 26)
                                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm / 2))
+                                .accessibilityLabel("\(entry.app) icon")
 
                             VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                                 HStack {
