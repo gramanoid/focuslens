@@ -299,7 +299,7 @@ final class AppState: ObservableObject {
 
     func triggerCaptureNow() {
         Task {
-            await runCaptureCycle()
+            await runCaptureCycle(manual: true)
         }
     }
 
@@ -390,9 +390,9 @@ final class AppState: ObservableObject {
         return .other
     }
 
-    private func runCaptureCycle() async {
+    private func runCaptureCycle(manual: Bool = false) async {
         guard !isCaptureInFlight else { return }
-        guard isRunning else { return }
+        guard manual || isRunning else { return }
         refreshPermissionState()
         guard screenPermissionGranted else {
             showPermissionSheet = true
