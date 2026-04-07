@@ -201,12 +201,8 @@ final class AppState: ObservableObject {
         if let startupWarning = database.startupWarning {
             lastErrorMessage = startupWarning
         }
-        // Only show the permission sheet on genuine first launch (no sessions ever captured).
-        // On subsequent launches where permissions were reset (new ad-hoc binary), the
-        // onboarding setup steps handle re-granting without forcing a modal dialog.
-        if !screenPermissionGranted && !defaults.bool(forKey: Keys.hasCompletedFirstCapture) {
-            showPermissionSheet = true
-        }
+        // Never auto-show permission sheet on boot — the setup steps in the
+        // menu bar popover handle permission granting without modal interruption.
         await checkServerHealth()
 
         // Auto-start server if model is ready and server isn't already running externally

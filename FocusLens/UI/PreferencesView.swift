@@ -117,6 +117,11 @@ struct PreferencesView: View {
                         HStack(spacing: DS.Spacing.sm) {
                             Button("Open Settings") {
                                 KeystrokeMonitor.openAccessibilitySettings()
+                                // Re-focus Preferences after a delay so it doesn't stay behind System Settings
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    PreferencesWindowController.shared.window?.makeKeyAndOrderFront(nil)
+                                    NSApp.activate(ignoringOtherApps: true)
+                                }
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(DS.Accent.warning)
@@ -125,6 +130,9 @@ struct PreferencesView: View {
                                 if appState.accessibilityPermissionGranted {
                                     appState.updateKeystrokeTracking(true)
                                 }
+                                // Re-focus in case window lost focus
+                                PreferencesWindowController.shared.window?.makeKeyAndOrderFront(nil)
+                                NSApp.activate(ignoringOtherApps: true)
                             }
                             .buttonStyle(.bordered)
                             .hoverFeedback()
