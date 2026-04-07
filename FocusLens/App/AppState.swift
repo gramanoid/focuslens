@@ -400,8 +400,8 @@ final class AppState: ObservableObject {
     /// Maps well-known bundle ID prefixes to their definitive category.
     /// Used for blank captures and as a fallback when the model misclassifies.
     private static let knownAppCategories: [(prefix: String, category: ActivityCategory)] = [
-        // Communication
-        ("org.telegram", .communication),
+        // Communication — messaging, email, video calls
+        ("ru.keepcoder.Telegram", .communication),
         ("net.whatsapp", .communication),
         ("com.facebook.messenger", .communication),
         ("com.tinyspeck.slackmacgap", .communication),
@@ -410,11 +410,13 @@ final class AppState: ObservableObject {
         ("com.apple.MobileSMS", .communication),
         ("com.apple.FaceTime", .communication),
         ("com.skype", .communication),
-        ("com.discord", .communication),
+        ("com.hnc.Discord", .communication),
         ("com.viber", .communication),
         ("com.microsoft.Outlook", .communication),
         ("com.apple.mail", .communication),
-        // Coding
+        ("com.apple.mobilephone", .communication),
+
+        // Coding — editors, terminals, dev tools
         ("com.microsoft.VSCode", .coding),
         ("com.apple.dt.Xcode", .coding),
         ("com.sublimetext", .coding),
@@ -425,27 +427,47 @@ final class AppState: ObservableObject {
         ("co.zeit.hyper", .coding),
         ("com.apple.Terminal", .coding),
         ("dev.warp.Warp", .coding),
-        ("com.github.Atom", .coding),
+        ("com.github.GitHubClient", .coding),
         ("abnerworks.Typora", .coding),
-        // Browsing
+        ("com.openai.codex", .coding),
+        ("tonyapp.devutils", .coding),
+        ("com.apple.ScriptEditor2", .coding),
+        ("com.pvncher.repoprompt", .coding),
+        ("com.apple.Automator", .coding),
+        ("com.apple.shortcuts", .coding),
+
+        // Browsing — web browsers
         ("com.google.Chrome", .browsing),
         ("com.apple.Safari", .browsing),
         ("org.mozilla.firefox", .browsing),
         ("com.brave.Browser", .browsing),
         ("company.thebrowser.Browser", .browsing),
         ("com.operasoftware.Opera", .browsing),
-        // Design
+        ("com.microsoft.edgemac", .browsing),
+
+        // Design — creative tools
         ("com.figma.Desktop", .design),
         ("com.bohemiancoding.sketch3", .design),
         ("com.adobe.Photoshop", .design),
         ("com.adobe.illustrator", .design),
-        // Media
+        ("com.apple.freeform", .design),
+        ("cc.ffitch.shottr", .design),
+
+        // Media — music, video, podcasts, photos
         ("com.spotify.client", .media),
         ("com.apple.Music", .media),
         ("com.apple.TV", .media),
         ("com.google.android.youtube", .media),
         ("org.videolan.vlc", .media),
-        // Writing
+        ("com.apple.QuickTimePlayerX", .media),
+        ("com.apple.Photos", .media),
+        ("com.apple.PhotoBooth", .media),
+        ("com.apple.podcasts", .media),
+        ("com.apple.VoiceMemos", .media),
+        ("com.obsproject.obs-studio", .media),
+        ("com.apple.Image_Capture", .media),
+
+        // Writing — documents, notes, spreadsheets, knowledge
         ("com.microsoft.Word", .writing),
         ("com.microsoft.Excel", .writing),
         ("com.microsoft.Powerpoint", .writing),
@@ -455,6 +477,57 @@ final class AppState: ObservableObject {
         ("md.obsidian", .writing),
         ("com.apple.Notes", .writing),
         ("com.notion.Notion", .writing),
+        ("com.apple.TextEdit", .writing),
+        ("com.apple.reminders", .writing),
+        ("com.apple.iCal", .writing),
+        ("com.google.drivefs", .writing),
+        ("org.libreoffice", .writing),
+        ("com.apple.Stickies", .writing),
+        ("net.kovidgoyal.calibre", .writing),
+        ("com.calibre-ebook", .writing),
+        ("com.benjitaylor.Readout", .writing),
+        ("ai.plaud.desktop", .writing),
+
+        // Browsing — AI chat interfaces
+        ("com.anthropic.claudefordesktop", .browsing),
+        ("com.openai.chat", .browsing),
+        ("ai.elementlabs.lmstudio", .browsing),
+        ("im.manus.desktop", .browsing),
+
+        // Other — system utilities (genuinely miscellaneous)
+        ("com.apple.systempreferences", .other),
+        ("com.apple.SystemPreferences", .other),
+        ("com.apple.finder", .other),
+        ("com.apple.ActivityMonitor", .other),
+        ("com.apple.Preview", .other),
+        ("com.apple.DiskUtility", .other),
+        ("com.apple.Passwords", .other),
+        ("com.apple.SystemProfiler", .other),
+        ("com.apple.Console", .other),
+        ("com.apple.AppStore", .other),
+        ("com.binarynights.ForkLift", .other),
+        ("net.freemacsoft.AppCleaner", .other),
+        ("com.raycast.macos", .other),
+        ("com.bitwarden.desktop", .other),
+        ("eu.exelban.Stats", .other),
+        ("com.lwouis.alt-tab-macos", .other),
+        ("com.knollsoft.Rectangle", .other),
+        ("com.if.Amphetamine", .other),
+        ("io.tailscale.ipn", .other),
+        ("com.express.vpn", .other),
+        ("com.aone.keka", .other),
+        ("io.ganeshrvel.openmtp", .other),
+        ("pro.betterdisplay", .other),
+        ("com.apple.calculator", .other),
+        ("com.apple.Maps", .other),
+        ("com.apple.weather", .other),
+        ("com.apple.stocks", .other),
+        ("com.apple.news", .browsing),
+        ("com.apple.iBooksX", .writing),
+        ("com.apple.Home", .other),
+        ("com.apple.findmy", .other),
+        ("computer.pinokio", .coding),
+        ("com.apple.ScreenSharing", .communication),
     ]
 
     private func knownCategory(for bundleID: String?) -> ActivityCategory? {
