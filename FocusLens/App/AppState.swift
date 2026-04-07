@@ -199,7 +199,12 @@ final class AppState: ObservableObject {
         if let startupWarning = database.startupWarning {
             lastErrorMessage = startupWarning
         }
-        showPermissionSheet = !screenPermissionGranted
+        // Only show the permission sheet on genuine first launch (no sessions ever captured).
+        // On subsequent launches where permissions were reset (new ad-hoc binary), the
+        // onboarding setup steps handle re-granting without forcing a modal dialog.
+        if !screenPermissionGranted && !defaults.bool(forKey: Keys.hasCompletedFirstCapture) {
+            showPermissionSheet = true
+        }
         await checkServerHealth()
 
         // Auto-start server if model is ready and server isn't already running externally
@@ -287,8 +292,12 @@ final class AppState: ObservableObject {
     }
 
     func requestScreenPermission() {
-        showPermissionSheet = !ScreenCapture.requestPermission()
-        refreshPermissionState()
+        ScreenCapture.openPrivacySettings()
+        // Refresh after delay in case permission was already granted
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            refreshPermissionState()
+        }
     }
 
     func dismissPermissionSheet() {
@@ -497,6 +506,9 @@ final class AppState: ObservableObject {
                 try? database.saveKeystrokes(records)
             }
 
+            if !defaults.bool(forKey: Keys.hasCompletedFirstCapture) {
+                defaults.set(true, forKey: Keys.hasCompletedFirstCapture)
+            }
             refreshRecentEntries()
             refreshTodaySummary()
             captureStatus = .idle
@@ -629,5 +641,6 @@ final class AppState: ObservableObject {
         static let customMmprojPath = "focuslens.customMmprojPath"
         static let screenshotDirectory = "focuslens.screenshotDirectory"
         static let keystrokeTrackingEnabled = "focuslens.keystrokeTrackingEnabled"
+        static let hasCompletedFirstCapture = "focuslens.hasCompletedFirstCapture"
     }
 }
