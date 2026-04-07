@@ -444,7 +444,24 @@ final class AppState: ObservableObject {
 
             let customDir = screenshotDirectoryPath.isEmpty ? nil : screenshotDirectoryPath
             let payload = try ScreenCapture.capture(screenshotDirectory: customDir)
-            if let bundleID = payload.activeBundleID, excludedBundleIDs.contains(bundleID) {
+
+            // Skip system processes that should never be tracked
+            let systemSkipList: Set<String> = [
+                "com.apple.loginwindow",
+                "com.apple.SecurityAgent",
+                "com.apple.screensaver",
+                "com.apple.ScreenSaver.Engine",
+                "com.apple.UserNotificationCenter"
+            ]
+            let shouldSkip = {
+                if let bundleID = payload.activeBundleID {
+                    return excludedBundleIDs.contains(bundleID) || systemSkipList.contains(bundleID)
+                }
+                // loginwindow has no bundle ID in some contexts — check app name
+                return payload.activeAppName.lowercased() == "loginwindow"
+            }()
+
+            if shouldSkip {
                 if !keepScreenshots {
                     try? FileManager.default.removeItem(at: payload.screenshotURL)
                 }
