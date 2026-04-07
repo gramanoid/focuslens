@@ -4,7 +4,7 @@ struct AIAnalysisTabView: View {
     @ObservedObject var viewModel: ActivityExplorerViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: DS.Spacing.xl) {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 DateRangeSelectorView(selection: $viewModel.selectedDateRange)
 
@@ -24,7 +24,8 @@ struct AIAnalysisTabView: View {
                         viewModel.generateAnalysis()
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.green)
+                    .tint(DS.Accent.primary)
+                    .accessibilityLabel("Generate AI analysis")
                 }
             }
 

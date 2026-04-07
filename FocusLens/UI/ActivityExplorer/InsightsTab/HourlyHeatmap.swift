@@ -4,18 +4,24 @@ struct HourlyHeatmap: View {
     let cells: [HourlyHeatCell]
     let onSelect: (Date, Int) -> Void
 
-    var body: some View {
-        let days = Dictionary(grouping: cells, by: { Calendar.current.startOfDay(for: $0.day) })
+    private var days: [(Date, [HourlyHeatCell])] {
+        Dictionary(grouping: cells, by: { Calendar.current.startOfDay(for: $0.day) })
             .map { ($0.key, $0.value.sorted { $0.hour < $1.hour }) }
             .sorted { $0.0 < $1.0 }
-        let maxMinutes = max(cells.map(\.minutes).max() ?? 0, 1)
+    }
+
+    private var maxMinutes: Double {
+        max(cells.map(\.minutes).max() ?? 0, 1)
+    }
+
+    var body: some View {
 
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             Text("Hourly Activity Heatmap")
                 .font(.system(.headline, design: .rounded, weight: .bold))
 
             ScrollView(.horizontal, showsIndicators: false) {
-            Grid(alignment: .leading, horizontalSpacing: 6, verticalSpacing: 6) {
+            Grid(alignment: .leading, horizontalSpacing: DS.Spacing.sm, verticalSpacing: DS.Spacing.sm) {
                 GridRow {
                     Text("")
                     ForEach(0 ..< 24, id: \.self) { hour in
@@ -33,9 +39,9 @@ struct HourlyHeatmap: View {
                             Button {
                                 onSelect(day, cell.hour)
                             } label: {
-                                RoundedRectangle(cornerRadius: 4)
+                                RoundedRectangle(cornerRadius: DS.Spacing.xs)
                                     .fill(DS.Accent.primary.opacity(0.12 + (cell.minutes / maxMinutes) * 0.88))
-                                    .frame(width: 18, height: 18)
+                                    .frame(width: DS.Spacing.xl, height: DS.Spacing.xl)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("\(day.formatted(date: .abbreviated, time: .omitted)) hour \(cell.hour), \(Int(cell.minutes)) minutes tracked")

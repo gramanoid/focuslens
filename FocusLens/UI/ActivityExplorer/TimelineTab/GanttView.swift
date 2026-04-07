@@ -4,13 +4,15 @@ struct GanttView: View {
     let blocks: [SessionBlock]
     let day: Date
 
-    var body: some View {
-        let rows = Dictionary(grouping: blocks, by: \.app)
+    private var rows: [(String, [SessionBlock])] {
+        Dictionary(grouping: blocks, by: \.app)
             .map { ($0.key, $0.value.sorted { $0.start < $1.start }) }
             .sorted { $0.0 < $1.0 }
+    }
 
+    var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: DS.Spacing.xl) {
                 ForEach(rows, id: \.0) { row in
                     VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                         Text(row.0)
@@ -21,7 +23,7 @@ struct GanttView: View {
                                     .fill(DS.Surface.inset)
                                 ForEach(row.1, id: \.id) { block in
                                     let frame = frameForBlock(block, width: proxy.size.width)
-                                    RoundedRectangle(cornerRadius: 10)
+                                    RoundedRectangle(cornerRadius: DS.Radius.sm)
                                         .fill(block.category.color.gradient)
                                         .frame(width: frame.width, height: 28)
                                         .offset(x: frame.minX, y: 6)

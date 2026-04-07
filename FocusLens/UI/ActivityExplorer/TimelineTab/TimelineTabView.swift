@@ -31,8 +31,8 @@ struct TimelineTabView: View {
                             } label: {
                                 Text(category.title)
                                     .font(.caption.weight(.semibold))
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 7)
+                                    .padding(.horizontal, DS.Spacing.smMd)
+                                    .padding(.vertical, DS.Spacing.sm)
                                     .background(
                                         viewModel.selectedCategories.contains(category) ? category.color.opacity(DS.Emphasis.medium) : DS.Surface.card,
                                         in: Capsule()
@@ -52,7 +52,7 @@ struct TimelineTabView: View {
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                     HStack {
                         Text("Minimum confidence")
                         Spacer()
@@ -60,6 +60,8 @@ struct TimelineTabView: View {
                             .foregroundStyle(.secondary)
                     }
                     Slider(value: $viewModel.minimumConfidence, in: 0 ... 1)
+                        .accessibilityLabel("Minimum confidence filter")
+                        .accessibilityValue("\(Int(viewModel.minimumConfidence * 100)) percent")
                 }
 
                 Toggle("Show only focus sessions", isOn: $viewModel.showOnlyFocusSessions)
@@ -73,7 +75,7 @@ struct TimelineTabView: View {
     }
 
     private var content: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: DS.Spacing.xl) {
             HStack {
                 Text(viewModel.selectedDay.formatted(date: .abbreviated, time: .omitted))
                     .font(.system(size: 34, weight: .bold, design: .rounded))
@@ -95,7 +97,7 @@ struct TimelineTabView: View {
             if viewModel.timelineViewMode == .cards {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 14) {
+                        LazyVStack(spacing: DS.Spacing.lg) {
                             ForEach(Array(viewModel.timelineBlocks.enumerated()), id: \.element.id) { index, block in
                                 SessionCard(
                                     block: block,
@@ -138,17 +140,7 @@ struct TimelineTabView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                let blocks = viewModel.timelineBlocks
-                let totalDuration = blocks.reduce(0.0) { $0 + $1.duration }
-                let topApp = Dictionary(grouping: blocks, by: \.app)
-                    .max(by: { $0.value.reduce(0) { $0 + $1.duration } < $1.value.reduce(0) { $0 + $1.duration } })?
-                    .key ?? "Unknown"
-                let topCategory = Dictionary(grouping: blocks, by: \.category)
-                    .max(by: { $0.value.count < $1.value.count })?
-                    .key ?? .other
-                let switches = zip(blocks.dropLast(), blocks.dropFirst()).filter { $0.0.app != $0.1.app }.count
-
-                Text("\(AnalysisAggregator.format(duration: totalDuration)) tracked across \(blocks.count) sessions. Mostly \(topCategory.title.lowercased()) in \(topApp). \(switches) context switch\(switches == 1 ? "" : "es").")
+                Text(daySummaryText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -156,6 +148,19 @@ struct TimelineTabView: View {
         }
         .padding(DS.Spacing.md)
         .background(DS.Surface.card, in: RoundedRectangle(cornerRadius: DS.Radius.md))
+    }
+
+    private var daySummaryText: String {
+        let blocks = viewModel.timelineBlocks
+        let totalDuration = blocks.reduce(0.0) { $0 + $1.duration }
+        let topApp = Dictionary(grouping: blocks, by: \.app)
+            .max(by: { $0.value.reduce(0) { $0 + $1.duration } < $1.value.reduce(0) { $0 + $1.duration } })?
+            .key ?? "Unknown"
+        let topCategory = Dictionary(grouping: blocks, by: \.category)
+            .max(by: { $0.value.count < $1.value.count })?
+            .key ?? .other
+        let switches = zip(blocks.dropLast(), blocks.dropFirst()).filter { $0.0.app != $0.1.app }.count
+        return "\(AnalysisAggregator.format(duration: totalDuration)) tracked across \(blocks.count) sessions. Mostly \(topCategory.title.lowercased()) in \(topApp). \(switches) context switch\(switches == 1 ? "" : "es")."
     }
 
     private func connection(before index: Int) -> Bool {

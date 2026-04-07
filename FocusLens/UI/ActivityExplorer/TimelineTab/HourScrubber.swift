@@ -6,16 +6,16 @@ struct HourScrubber: View {
     let onSelect: (Int) -> Void
 
     var body: some View {
-        HStack(spacing: DS.Spacing.xs + 2) {
+        HStack(spacing: DS.Spacing.sm) {
             ForEach(0 ..< 24, id: \.self) { hour in
                 Button {
                     selectedHour = hour
                     onSelect(hour)
                 } label: {
-                    VStack(spacing: DS.Spacing.xs + 2) {
+                    VStack(spacing: DS.Spacing.sm) {
                         Text(String(format: "%02d", hour))
                             .font(.caption2.monospacedDigit())
-                        RoundedRectangle(cornerRadius: 6)
+                        RoundedRectangle(cornerRadius: DS.Radius.sm / 2)
                             .fill(color(for: hour))
                             .frame(height: 28)
                     }

@@ -400,14 +400,14 @@ struct PreferencesView: View {
             if case .failed(let message) = appState.downloadManager.status {
                 Text(message)
                     .font(.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(DS.Accent.warning)
                     .lineLimit(2)
             }
 
             if case .failed(let message) = appState.serverProcess.status {
                 Text(message)
                     .font(.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(DS.Accent.warning)
                     .lineLimit(2)
             }
         }
@@ -548,7 +548,7 @@ struct PreferencesView: View {
                     VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                         HStack(spacing: DS.Spacing.sm) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.red)
+                                .foregroundStyle(DS.Accent.warning)
                             Text(message)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
