@@ -8,6 +8,7 @@ enum ActivityCategory: String, Codable, CaseIterable, Identifiable, Hashable {
     case communication
     case media
     case design
+    case sleeping
     case other
     case unknown
 
@@ -21,6 +22,7 @@ enum ActivityCategory: String, Codable, CaseIterable, Identifiable, Hashable {
         case .communication: "Communication"
         case .media: "Media"
         case .design: "Design"
+        case .sleeping: "Device Sleeping"
         case .other: "Other"
         case .unknown: "Unknown"
         }
@@ -34,6 +36,7 @@ enum ActivityCategory: String, Codable, CaseIterable, Identifiable, Hashable {
         case .communication: Color.pink
         case .media: Color.purple
         case .design: Color.teal
+        case .sleeping: Color(red: 0.3, green: 0.3, blue: 0.4)
         case .other: Color.gray
         case .unknown: Color.secondary
         }

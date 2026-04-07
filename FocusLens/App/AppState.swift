@@ -63,6 +63,7 @@ final class AppState: ObservableObject {
 
     private let defaults: UserDefaults
     private var healthTask: Task<Void, Never>?
+    private var sleepStartedAt: Date?
     private lazy var scheduler = CaptureScheduler(
         intervalProvider: { [weak self] in
             self?.captureInterval.rawValue ?? CaptureIntervalOption.oneMinute.rawValue
@@ -213,6 +214,7 @@ final class AppState: ObservableObject {
 
         startHealthChecks()
         updateScheduler()
+        startSleepWakeObserver()
     }
 
     func toggleRunning() {
@@ -539,6 +541,55 @@ final class AppState: ObservableObject {
 
     func stopServer() {
         serverProcess.stop()
+    }
+
+    // MARK: - Sleep / Wake Detection
+
+    private func startSleepWakeObserver() {
+        let center = NSWorkspace.shared.notificationCenter
+        center.addObserver(
+            forName: NSWorkspace.willSleepNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.sleepStartedAt = Date()
+            }
+        }
+        center.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleWake()
+            }
+        }
+    }
+
+    private func handleWake() {
+        guard let sleepStart = sleepStartedAt else { return }
+        sleepStartedAt = nil
+
+        let wakeTime = Date()
+        let duration = wakeTime.timeIntervalSince(sleepStart)
+
+        // Only record sleep sessions longer than 1 minute
+        guard duration > 60 else { return }
+
+        let session = SessionRecord(
+            timestamp: sleepStart,
+            app: "System",
+            bundleID: nil,
+            category: .sleeping,
+            task: "Device sleeping (\(AnalysisAggregator.format(duration: duration)))",
+            confidence: 1.0,
+            screenshotPath: nil,
+            rawResponse: nil
+        )
+        _ = try? database.saveSession(session)
+        refreshRecentEntries()
+        refreshTodaySummary()
     }
 
     static func buildKeystrokeContext(from segments: [KeystrokeSegment]) -> String? {
