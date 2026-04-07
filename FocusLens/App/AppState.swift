@@ -400,18 +400,73 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Maps well-known bundle ID prefixes to their definitive category.
+    /// Used for blank captures and as a fallback when the model misclassifies.
+    private static let knownAppCategories: [(prefix: String, category: ActivityCategory)] = [
+        // Communication
+        ("org.telegram", .communication),
+        ("net.whatsapp", .communication),
+        ("com.facebook.messenger", .communication),
+        ("com.tinyspeck.slackmacgap", .communication),
+        ("us.zoom", .communication),
+        ("com.microsoft.teams", .communication),
+        ("com.apple.MobileSMS", .communication),
+        ("com.apple.FaceTime", .communication),
+        ("com.skype", .communication),
+        ("com.discord", .communication),
+        ("com.viber", .communication),
+        ("com.microsoft.Outlook", .communication),
+        ("com.apple.mail", .communication),
+        // Coding
+        ("com.microsoft.VSCode", .coding),
+        ("com.apple.dt.Xcode", .coding),
+        ("com.sublimetext", .coding),
+        ("com.jetbrains", .coding),
+        ("com.googlecode.iterm2", .coding),
+        ("com.mitchellh.ghostty", .coding),
+        ("net.kovidgoyal.kitty", .coding),
+        ("co.zeit.hyper", .coding),
+        ("com.apple.Terminal", .coding),
+        ("dev.warp.Warp", .coding),
+        ("com.github.Atom", .coding),
+        ("abnerworks.Typora", .coding),
+        // Browsing
+        ("com.google.Chrome", .browsing),
+        ("com.apple.Safari", .browsing),
+        ("org.mozilla.firefox", .browsing),
+        ("com.brave.Browser", .browsing),
+        ("company.thebrowser.Browser", .browsing),
+        ("com.operasoftware.Opera", .browsing),
+        // Design
+        ("com.figma.Desktop", .design),
+        ("com.bohemiancoding.sketch3", .design),
+        ("com.adobe.Photoshop", .design),
+        ("com.adobe.illustrator", .design),
+        // Media
+        ("com.spotify.client", .media),
+        ("com.apple.Music", .media),
+        ("com.apple.TV", .media),
+        ("com.google.android.youtube", .media),
+        ("org.videolan.vlc", .media),
+        // Writing
+        ("com.microsoft.Word", .writing),
+        ("com.microsoft.Excel", .writing),
+        ("com.microsoft.Powerpoint", .writing),
+        ("com.apple.iWork.Pages", .writing),
+        ("com.apple.iWork.Keynote", .writing),
+        ("com.apple.iWork.Numbers", .writing),
+        ("md.obsidian", .writing),
+        ("com.apple.Notes", .writing),
+        ("com.notion.Notion", .writing),
+    ]
+
+    private func knownCategory(for bundleID: String?) -> ActivityCategory? {
+        guard let bundleID = bundleID else { return nil }
+        return Self.knownAppCategories.first(where: { bundleID.hasPrefix($0.prefix) })?.category
+    }
+
     private func guessCategoryForBlankCapture(bundleID: String?) -> ActivityCategory {
-        guard let bundleID = bundleID?.lowercased() else { return .other }
-        let communicationBundles = [
-            "org.telegram", "net.whatsapp", "com.facebook.messenger",
-            "com.tinyspeck.slackmacgap", "us.zoom", "com.microsoft.teams",
-            "com.apple.MobileSMS", "com.apple.FaceTime", "com.skype",
-            "com.discord", "com.viber"
-        ]
-        if communicationBundles.contains(where: { bundleID.hasPrefix($0) }) {
-            return .communication
-        }
-        return .other
+        knownCategory(for: bundleID) ?? .other
     }
 
     private func runCaptureCycle(manual: Bool = false) async {
@@ -498,11 +553,13 @@ final class AppState: ObservableObject {
                     frontmostBundleID: payload.activeBundleID,
                     keystrokeContext: keystrokeContext
                 )
+                // Use known-app category if available, otherwise trust the model
+                let finalCategory = knownCategory(for: payload.activeBundleID) ?? result.category
                 session = SessionRecord(
                     timestamp: payload.timestamp,
                     app: AppIconResolver.displayName(for: payload.activeBundleID, fallback: payload.activeAppName),
                     bundleID: payload.activeBundleID,
-                    category: result.category,
+                    category: finalCategory,
                     task: result.task,
                     confidence: result.confidence,
                     screenshotPath: screenshotPath,
