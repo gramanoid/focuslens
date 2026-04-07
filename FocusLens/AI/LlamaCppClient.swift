@@ -50,13 +50,15 @@ extension LlamaCppClient {
     ) async throws -> ClassificationResult {
         var promptParts = [
             """
-            You are classifying a macOS screenshot.
+            You are classifying a macOS screenshot to build a work activity log.
             The frontmost app reported by the OS is "\(frontmostAppName)".
             Bundle ID: "\(frontmostBundleID ?? "unknown")".
-            Use the OS-reported app name exactly unless it is obviously wrong.
-            Do not invent or OCR a variant of the app name.
-            The screenshot shows the full screen — you may see other apps in the background behind the frontmost window. Note any visible background apps in your task description for context (e.g., "Writing code in VS Code with Slack visible in background"), but classify based on the frontmost app.
-            If screen text is small or uncertain, keep the task description broad and avoid guessing product names.
+            Use the OS-reported app name exactly — do not invent or OCR a variant.
+            The screenshot shows the full screen. Note visible background apps for context, but classify based on the frontmost app.
+            CRITICAL: The "task" field must describe the SPECIFIC content visible on screen. Read the page title, tab name, URL, file name, or visible text to determine what the user is actually doing.
+            Good examples: "Reading GitHub PR #142 comments", "Composing email to John in Gmail", "Editing auth.ts in VS Code", "Watching YouTube video about React hooks", "Slack conversation in #engineering channel"
+            Bad examples: "Browsing the web", "Work session analysis", "User activity on Chrome", "Mixed work activities" — these are too vague and useless.
+            If you truly cannot read any specific content, describe what UI elements you see (e.g., "Chrome with multiple tabs open, content not readable").
             """
         ]
 
