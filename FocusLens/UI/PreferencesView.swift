@@ -11,6 +11,7 @@ struct PreferencesView: View {
                 trackingSection
                 serverSection
                 appSection
+                updatesSection
                 privacySection
             }
             .padding(DS.Spacing.xl)
@@ -404,6 +405,116 @@ struct PreferencesView: View {
                     Text("Start FocusLens automatically so your timeline begins without a manual step.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var updatesSection: some View {
+        SurfaceCard(title: "Updates", subtitle: "Check for new versions from GitHub Releases.") {
+            VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                HStack {
+                    Text("Current version")
+                        .font(.subheadline.weight(.medium))
+                    Spacer()
+                    Text(appState.updater.currentVersion)
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+
+                switch appState.updater.status {
+                case .idle:
+                    Button("Check for Updates") {
+                        Task { await appState.updater.checkForUpdates() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(DS.Accent.primary)
+                    .hoverFeedback()
+
+                case .checking:
+                    HStack(spacing: DS.Spacing.sm) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Checking...")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                case .upToDate:
+                    HStack(spacing: DS.Spacing.sm) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(DS.Accent.primary)
+                        Text("You're on the latest version.")
+                            .font(.subheadline)
+                    }
+                    Button("Check Again") {
+                        Task { await appState.updater.checkForUpdates() }
+                    }
+                    .buttonStyle(.bordered)
+                    .hoverFeedback()
+
+                case .available(let version, let notes, let url):
+                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                        HStack(spacing: DS.Spacing.sm) {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .foregroundStyle(DS.Accent.primary)
+                            Text("Version \(version) available")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        if !notes.isEmpty {
+                            Text(notes)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(6)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(DS.Spacing.md)
+                                .background(DS.Surface.inset, in: RoundedRectangle(cornerRadius: DS.Radius.md))
+                        }
+                        Button("Download & Install") {
+                            Task { await appState.updater.downloadAndInstall(url: url) }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(DS.Accent.primary)
+                        .hoverFeedback()
+                    }
+
+                case .downloading(let progress):
+                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                        HStack {
+                            Text("Downloading...")
+                                .font(.subheadline)
+                            Spacer()
+                            Text("\(Int(progress * 100))%")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        ProgressView(value: progress)
+                            .tint(DS.Accent.primary)
+                    }
+
+                case .installing:
+                    HStack(spacing: DS.Spacing.sm) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Installing... FocusLens will restart.")
+                            .font(.subheadline)
+                    }
+
+                case .failed(let message):
+                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                        HStack(spacing: DS.Spacing.sm) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                            Text(message)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Button("Retry") {
+                            Task { await appState.updater.checkForUpdates() }
+                        }
+                        .buttonStyle(.bordered)
+                        .hoverFeedback()
+                    }
                 }
             }
         }

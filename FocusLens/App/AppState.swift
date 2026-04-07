@@ -59,6 +59,7 @@ final class AppState: ObservableObject {
     let downloadManager = ModelDownloadManager()
     let serverProcess = ServerProcessManager()
     let keystrokeMonitor = KeystrokeMonitor()
+    let updater = AppUpdater()
 
     private let defaults: UserDefaults
     private var healthTask: Task<Void, Never>?
