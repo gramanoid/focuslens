@@ -55,6 +55,7 @@ extension LlamaCppClient {
             Bundle ID: "\(frontmostBundleID ?? "unknown")".
             Use the OS-reported app name exactly unless it is obviously wrong.
             Do not invent or OCR a variant of the app name.
+            The screenshot shows the full screen — you may see other apps in the background behind the frontmost window. Note any visible background apps in your task description for context (e.g., "Writing code in VS Code with Slack visible in background"), but classify based on the frontmost app.
             If screen text is small or uncertain, keep the task description broad and avoid guessing product names.
             """
         ]

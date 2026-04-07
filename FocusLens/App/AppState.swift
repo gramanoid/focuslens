@@ -305,9 +305,14 @@ final class AppState: ObservableObject {
 
     func refreshPermissionState() {
         screenPermissionGranted = ScreenCapture.hasPermission()
+        let wasAccessibilityGranted = accessibilityPermissionGranted
         accessibilityPermissionGranted = KeystrokeMonitor.hasAccessibilityPermission()
         if screenPermissionGranted && showPermissionSheet {
             showPermissionSheet = false
+        }
+        // Auto-start keystroke monitor when permission is newly granted
+        if !wasAccessibilityGranted && accessibilityPermissionGranted && keystrokeTrackingEnabled && !keystrokeMonitor.isMonitoring {
+            keystrokeMonitor.start(excludedBundleIDs: excludedBundleIDs)
         }
     }
 
