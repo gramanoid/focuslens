@@ -108,6 +108,30 @@ struct HourlyHeatCell: Identifiable, Hashable {
     }
 }
 
+struct WeeklyHeatCell: Identifiable, Hashable {
+    let dayOfWeek: Int  // 1=Sunday ... 7=Saturday
+    let hour: Int
+    let averageMinutes: Double
+    var id: String { "\(dayOfWeek)-\(hour)" }
+    var dayName: String { Calendar.current.shortWeekdaySymbols[dayOfWeek - 1] }
+}
+
+struct DayOfWeekSummary: Identifiable, Hashable {
+    let dayOfWeek: Int
+    let averageProductivityScore: Double
+    let averageTrackedMinutes: Double
+    let averageContextSwitches: Double
+    var id: Int { dayOfWeek }
+    var dayName: String { Calendar.current.weekdaySymbols[dayOfWeek - 1] }
+}
+
+struct PatternInsight: Identifiable {
+    let id = UUID()
+    let icon: String
+    let title: String
+    let description: String
+}
+
 enum AnalysisAggregator {
     static func blocks(from sessions: [SessionRecord], fallbackInterval: TimeInterval = 60) -> [SessionBlock] {
         guard !sessions.isEmpty else { return [] }
@@ -401,5 +425,145 @@ enum AnalysisAggregator {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    // MARK: - Cross-Day Pattern Analysis
+
+    /// 7×24 heatmap of average tracked minutes per weekday × hour.
+    static func weeklyHeatmap(blocks: [SessionBlock], calendar: Calendar = .current) -> [WeeklyHeatCell] {
+        // Group blocks by weekday
+        var minutesByWeekdayHour = [Int: [Int: [Double]]]() // weekday -> hour -> [minutes per day]
+        let dayBlocks = Dictionary(grouping: blocks, by: { calendar.startOfDay(for: $0.start) })
+
+        for (day, dayBlockList) in dayBlocks {
+            let weekday = calendar.component(.weekday, from: day)
+            for hour in 0 ..< 24 {
+                let start = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: day) ?? day
+                let end = calendar.date(byAdding: .hour, value: 1, to: start) ?? start
+                let interval = DateInterval(start: start, end: end)
+                let mins = dayBlockList.reduce(0.0) { $0 + overlapMinutes(block: $1, with: interval) }
+                minutesByWeekdayHour[weekday, default: [:]][hour, default: []].append(mins)
+            }
+        }
+
+        return (1...7).flatMap { weekday in
+            (0 ..< 24).map { hour in
+                let values = minutesByWeekdayHour[weekday]?[hour] ?? []
+                let avg = values.isEmpty ? 0 : values.reduce(0, +) / Double(values.count)
+                return WeeklyHeatCell(dayOfWeek: weekday, hour: hour, averageMinutes: avg)
+            }
+        }
+    }
+
+    /// Per-day-of-week averages for productivity, tracked time, and context switches.
+    static func dayOfWeekSummaries(blocks: [SessionBlock], calendar: Calendar = .current) -> [DayOfWeekSummary] {
+        let dayBlocks = Dictionary(grouping: blocks, by: { calendar.startOfDay(for: $0.start) })
+
+        var byWeekday = [Int: [(score: Double, minutes: Double, switches: Int)]]()
+        for (day, dayBlockList) in dayBlocks {
+            let weekday = calendar.component(.weekday, from: day)
+            let score = focusScore(for: dayBlockList)
+            let minutes = totalDuration(of: dayBlockList) / 60
+            let switches = contextSwitchCount(in: dayBlockList)
+            byWeekday[weekday, default: []].append((score, minutes, switches))
+        }
+
+        return (1...7).compactMap { weekday in
+            guard let entries = byWeekday[weekday], !entries.isEmpty else {
+                return DayOfWeekSummary(dayOfWeek: weekday, averageProductivityScore: 0, averageTrackedMinutes: 0, averageContextSwitches: 0)
+            }
+            let count = Double(entries.count)
+            return DayOfWeekSummary(
+                dayOfWeek: weekday,
+                averageProductivityScore: entries.reduce(0) { $0 + $1.score } / count,
+                averageTrackedMinutes: entries.reduce(0) { $0 + $1.minutes } / count,
+                averageContextSwitches: entries.reduce(0) { $0 + Double($1.switches) } / count
+            )
+        }
+    }
+
+    /// Median duration of productive (coding/writing/design) merged blocks.
+    static func optimalSessionLength(blocks: [SessionBlock]) -> TimeInterval {
+        let productive = mergedBlocks(from: blocks).filter { [.coding, .writing, .design].contains($0.category) }
+        guard !productive.isEmpty else { return 0 }
+        let sorted = productive.map(\.duration).sorted()
+        return sorted[sorted.count / 2]
+    }
+
+    /// Apps ranked by their ratio of focus time (coding/writing/design) to total time.
+    static func appFocusCorrelation(blocks: [SessionBlock]) -> [(app: String, focusRatio: Double)] {
+        let byApp = Dictionary(grouping: blocks, by: \.app)
+        return byApp.compactMap { app, appBlocks in
+            let total = totalDuration(of: appBlocks)
+            guard total > 60 else { return nil } // ignore trivial usage
+            let focusDuration = appBlocks.filter { [.coding, .writing, .design].contains($0.category) }.reduce(0) { $0 + $1.duration }
+            return (app: app, focusRatio: focusDuration / total)
+        }
+        .sorted { $0.focusRatio > $1.focusRatio }
+    }
+
+    /// Generate text insight cards from cross-day pattern data.
+    static func generatePatternInsights(
+        daySummaries: [DayOfWeekSummary],
+        weeklyHeatmap: [WeeklyHeatCell],
+        blocks: [SessionBlock]
+    ) -> [PatternInsight] {
+        var insights: [PatternInsight] = []
+
+        // Best day of the week
+        if let best = daySummaries.max(by: { $0.averageProductivityScore < $1.averageProductivityScore }),
+           best.averageProductivityScore > 0 {
+            insights.append(PatternInsight(
+                icon: "star.fill",
+                title: "Most Productive Day",
+                description: "\(best.dayName) averages \(Int(best.averageProductivityScore))% productivity with \(Int(best.averageTrackedMinutes))m tracked."
+            ))
+        }
+
+        // Peak focus hours
+        let topHours = weeklyHeatmap
+            .filter { $0.averageMinutes > 0 }
+            .sorted { $0.averageMinutes > $1.averageMinutes }
+            .prefix(3)
+        if let peak = topHours.first {
+            insights.append(PatternInsight(
+                icon: "flame.fill",
+                title: "Peak Focus Hour",
+                description: "\(String(format: "%02d", peak.hour)):00 on \(peak.dayName) is your most active hour (\(Int(peak.averageMinutes))m avg)."
+            ))
+        }
+
+        // Context switch comparison
+        if let calmest = daySummaries.filter({ $0.averageTrackedMinutes > 30 }).min(by: { $0.averageContextSwitches < $1.averageContextSwitches }),
+           let busiest = daySummaries.max(by: { $0.averageContextSwitches < $1.averageContextSwitches }),
+           calmest.dayOfWeek != busiest.dayOfWeek {
+            insights.append(PatternInsight(
+                icon: "arrow.triangle.swap",
+                title: "Focus vs Fragmentation",
+                description: "\(calmest.dayName) is your calmest (\(Int(calmest.averageContextSwitches)) switches), \(busiest.dayName) is most fragmented (\(Int(busiest.averageContextSwitches)) switches)."
+            ))
+        }
+
+        // Optimal session length
+        let optimal = optimalSessionLength(blocks: blocks)
+        if optimal > 0 {
+            insights.append(PatternInsight(
+                icon: "timer",
+                title: "Optimal Session Length",
+                description: "Your median deep-work block is \(format(duration: optimal)). Plan focus sessions around this length."
+            ))
+        }
+
+        // Top focus apps
+        let focusApps = appFocusCorrelation(blocks: blocks).prefix(2)
+        if let top = focusApps.first, top.focusRatio > 0 {
+            insights.append(PatternInsight(
+                icon: "app.badge.checkmark",
+                title: "Focus App",
+                description: "\(top.app) has the highest focus ratio (\(Int(top.focusRatio * 100))% deep work)."
+            ))
+        }
+
+        return insights
     }
 }

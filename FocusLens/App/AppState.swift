@@ -56,6 +56,8 @@ final class AppState: ObservableObject {
     @Published var screenshotRetentionDays: Int
     @Published var idleThresholdMinutes: Int
     @Published var isUserIdle = false
+    @Published var journalDirectoryPath: String
+    @Published var autoJournalEnabled: Bool
 
     let database: AppDatabase
     let llamaClient: LlamaCppClient
@@ -66,6 +68,7 @@ final class AppState: ObservableObject {
 
     private let defaults: UserDefaults
     private var healthTask: Task<Void, Never>?
+    private var lastScreenshotHash: UInt64?
     private var sleepStartedAt: Date?
     private lazy var scheduler = CaptureScheduler(
         intervalProvider: { [weak self] in
@@ -99,6 +102,8 @@ final class AppState: ObservableObject {
         screenshotDirectoryPath = defaults.string(forKey: Keys.screenshotDirectory) ?? ""
         screenshotRetentionDays = defaults.object(forKey: Keys.screenshotRetentionDays) as? Int ?? 1
         idleThresholdMinutes = defaults.object(forKey: Keys.idleThresholdMinutes) as? Int ?? 2
+        journalDirectoryPath = defaults.string(forKey: Keys.journalDirectory) ?? "~/Documents/FocusLens/journals"
+        autoJournalEnabled = defaults.object(forKey: Keys.autoJournalEnabled) as? Bool ?? false
 
         Task {
             await bootstrap()
@@ -222,6 +227,7 @@ final class AppState: ObservableObject {
         startHealthChecks()
         updateScheduler()
         startSleepWakeObserver()
+        startQuitObserver()
         startReanalysisTimer()
     }
 
@@ -608,6 +614,19 @@ final class AppState: ObservableObject {
                 return
             }
 
+            // pHash deduplication: skip classification if screenshot is near-identical to previous
+            if !manual, let currentHash = PerceptualHash.hash(from: payload.resizedPNGData) {
+                if let lastHash = lastScreenshotHash,
+                   PerceptualHash.distance(currentHash, lastHash) < 5 {
+                    if !keepScreenshots {
+                        try? FileManager.default.removeItem(at: payload.screenshotURL)
+                    }
+                    captureStatus = .idle
+                    return
+                }
+                lastScreenshotHash = currentHash
+            }
+
             var screenshotPath: String? = payload.screenshotURL.path
             if !keepScreenshots {
                 try? FileManager.default.removeItem(at: payload.screenshotURL)
@@ -713,6 +732,24 @@ final class AppState: ObservableObject {
         defaults.set(minutes, forKey: Keys.idleThresholdMinutes)
     }
 
+    func updateJournalDirectory(_ path: String) {
+        journalDirectoryPath = path
+        defaults.set(path, forKey: Keys.journalDirectory)
+    }
+
+    func updateAutoJournal(_ enabled: Bool) {
+        autoJournalEnabled = enabled
+        defaults.set(enabled, forKey: Keys.autoJournalEnabled)
+    }
+
+    func generateJournalOnQuit() {
+        guard autoJournalEnabled else { return }
+        let expandedPath = NSString(string: journalDirectoryPath).expandingTildeInPath
+        let dir = URL(fileURLWithPath: expandedPath)
+        let generator = WorkJournalGenerator(database: database)
+        try? generator.writeJournal(for: .now, to: dir, captureInterval: captureInterval.rawValue)
+    }
+
     func cleanupOldScreenshots() {
         guard keepScreenshots, screenshotRetentionDays > 0 else { return }
         let cutoff = Date().addingTimeInterval(-Double(screenshotRetentionDays) * 86400)
@@ -811,6 +848,19 @@ final class AppState: ObservableObject {
         }
     }
 
+    // MARK: - Quit Observer (Journal)
+
+    private func startQuitObserver() {
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.generateJournalOnQuit()
+        }
+    }
+
     // MARK: - Sleep / Wake Detection
 
     private func startSleepWakeObserver() {
@@ -888,6 +938,8 @@ final class AppState: ObservableObject {
         static let hasCompletedFirstCapture = "focuslens.hasCompletedFirstCapture"
         static let screenshotRetentionDays = "focuslens.screenshotRetentionDays"
         static let idleThresholdMinutes = "focuslens.idleThresholdMinutes"
+        static let journalDirectory = "focuslens.journalDirectory"
+        static let autoJournalEnabled = "focuslens.autoJournalEnabled"
     }
 
     /// Returns seconds since last keyboard or mouse event (HID-level, unaffected by caffeine apps).

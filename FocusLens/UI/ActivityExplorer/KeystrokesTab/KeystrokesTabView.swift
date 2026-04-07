@@ -166,7 +166,7 @@ private struct KeystrokeRow: View {
                     Text(record.app)
                         .font(.caption.weight(.semibold))
                 }
-                Text(record.timestamp.formatted(date: .omitted, time: .shortened))
+                Text(record.timestamp.formatted(date: .abbreviated, time: .shortened))
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(.tertiary)
                 Spacer()

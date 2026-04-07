@@ -5,6 +5,7 @@ import SwiftUI
 enum ActivityExplorerTab: String, CaseIterable, Identifiable {
     case timeline = "Timeline"
     case insights = "Insights"
+    case patterns = "Patterns"
     case keystrokes = "Keystrokes"
     case aiAnalysis = "AI Analysis"
 
@@ -66,6 +67,13 @@ final class ActivityExplorerViewModel: ObservableObject {
     @Published private(set) var cachedSwitchTrend: [HourlySwitchPoint] = []
     @Published private(set) var cachedAllApps: [String] = []
     @Published private(set) var rangeKeystrokes: [KeystrokeRecord] = []
+    @Published var globalSearchResults: [SearchResult] = []
+    @Published private(set) var cachedWeeklyHeatmap: [WeeklyHeatCell] = []
+    @Published private(set) var cachedDayOfWeekSummaries: [DayOfWeekSummary] = []
+    @Published private(set) var cachedPatternInsights: [PatternInsight] = []
+    @Published private(set) var cachedOptimalSessionLength: TimeInterval = 0
+    @Published private(set) var hasEnoughDataForPatterns = false
+    var debouncedSearchTask: Task<Void, Never>?
 
     let appState: AppState
 
@@ -128,6 +136,7 @@ final class ActivityExplorerViewModel: ObservableObject {
         reloadDay()
         reloadRange()
         reloadAnalyses()
+        reloadPatterns()
     }
 
     func reloadDay() {
@@ -149,6 +158,29 @@ final class ActivityExplorerViewModel: ObservableObject {
         cachedHourlyHeatmap = AnalysisAggregator.hourlyHeatmap(blocks: blocks, interval: interval)
         cachedSwitchTrend = AnalysisAggregator.averageSwitchesByHour(blocks: blocks, interval: interval)
         rangeKeystrokes = (try? appState.database.fetchKeystrokes(in: interval)) ?? []
+    }
+
+    func reloadPatterns() {
+        let calendar = Calendar.current
+        let end = Date()
+        let start = calendar.date(byAdding: .day, value: -30, to: end) ?? end
+        let interval = DateInterval(start: start, end: end)
+        let sessions = (try? appState.database.fetchSessions(in: interval)) ?? []
+        let blocks = AnalysisAggregator.blocks(from: sessions, fallbackInterval: appState.captureInterval.rawValue)
+
+        let uniqueDays = Set(blocks.map { calendar.startOfDay(for: $0.start) })
+        hasEnoughDataForPatterns = uniqueDays.count >= 7
+
+        guard hasEnoughDataForPatterns else { return }
+
+        cachedWeeklyHeatmap = AnalysisAggregator.weeklyHeatmap(blocks: blocks)
+        cachedDayOfWeekSummaries = AnalysisAggregator.dayOfWeekSummaries(blocks: blocks)
+        cachedOptimalSessionLength = AnalysisAggregator.optimalSessionLength(blocks: blocks)
+        cachedPatternInsights = AnalysisAggregator.generatePatternInsights(
+            daySummaries: cachedDayOfWeekSummaries,
+            weeklyHeatmap: cachedWeeklyHeatmap,
+            blocks: blocks
+        )
     }
 
     func reloadAnalyses() {
@@ -200,8 +232,9 @@ final class ActivityExplorerViewModel: ObservableObject {
         analysisTask = Task {
             do {
                 let systemPrompt = """
-                You are a productivity coach analyzing work session data captured from a user's Mac.
-                The data was collected by periodically taking screenshots and classifying what the user was working on.
+                You are a productivity coach analyzing work session data captured from the person's Mac.
+                Address them directly as "you" — never say "the user."
+                The data was collected by periodically taking screenshots and classifying what they were working on.
                 Be specific, data-driven, and actionable. Reference actual times, apps, and patterns from the data.
                 Do not be generic. Format your response with clear headers and bullet points.
                 Keep recommendations realistic and prioritized — max 5 actionable items.
@@ -258,6 +291,56 @@ final class ActivityExplorerViewModel: ObservableObject {
         guard let id = analysis.id else { return }
         try? appState.database.deleteAnalysis(id: id)
         reloadAnalyses()
+    }
+
+    func exportJournalForSelectedDay() {
+        let generator = WorkJournalGenerator(database: appState.database)
+        do {
+            let markdown = try generator.generate(for: selectedDay, captureInterval: appState.captureInterval.rawValue)
+            let panel = NSSavePanel()
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            panel.nameFieldStringValue = "\(formatter.string(from: selectedDay)).md"
+            panel.canCreateDirectories = true
+            if panel.runModal() == .OK, let url = panel.url {
+                try Data(markdown.utf8).write(to: url, options: .atomic)
+            }
+        } catch {
+            exportError = error.localizedDescription
+        }
+    }
+
+    func performSearch(query: String) {
+        let (cleanedQuery, dateRange) = NaturalDateParser.parse(query)
+        guard !cleanedQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            globalSearchResults = []
+            return
+        }
+        let sessions = (try? appState.database.searchSessions(query: cleanedQuery, in: dateRange, limit: 25)) ?? []
+        let keystrokes = (try? appState.database.searchKeystrokes(query: cleanedQuery, in: dateRange, limit: 25)) ?? []
+
+        var results: [SearchResult] = []
+        for s in sessions {
+            results.append(SearchResult(
+                id: "s-\(s.id ?? 0)",
+                timestamp: s.timestamp,
+                app: s.app,
+                text: s.task,
+                category: s.category,
+                source: .session
+            ))
+        }
+        for k in keystrokes {
+            results.append(SearchResult(
+                id: "k-\(k.id ?? 0)",
+                timestamp: k.timestamp,
+                app: k.app,
+                text: String(k.typedText.prefix(120)),
+                category: nil,
+                source: .keystroke
+            ))
+        }
+        globalSearchResults = results.sorted { $0.timestamp > $1.timestamp }
     }
 
     private static let isoFormatter = ISO8601DateFormatter()
@@ -344,6 +427,8 @@ struct ActivityExplorerView: View {
 
     var body: some View {
         VStack(spacing: DS.Spacing.lg) {
+            GlobalSearchBar(viewModel: viewModel)
+
             Picker("Tab", selection: $viewModel.selectedTab) {
                 ForEach(ActivityExplorerTab.allCases) { tab in
                     Text(tab.rawValue).tag(tab)
@@ -357,6 +442,8 @@ struct ActivityExplorerView: View {
                     TimelineTabView(viewModel: viewModel)
                 case .insights:
                     InsightsTabView(viewModel: viewModel)
+                case .patterns:
+                    PatternsTabView(viewModel: viewModel)
                 case .keystrokes:
                     KeystrokesTabView(viewModel: viewModel)
                 case .aiAnalysis:

@@ -68,6 +68,20 @@ struct TimelineTabView: View {
                 Toggle("Show only focus sessions", isOn: $viewModel.showOnlyFocusSessions)
             }
             Spacer()
+
+            Button {
+                viewModel.exportJournalForSelectedDay()
+            } label: {
+                Label("Export Journal", systemImage: "doc.text")
+                    .font(.caption.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, DS.Spacing.smMd)
+                    .background(DS.Accent.primary.opacity(DS.Emphasis.medium), in: RoundedRectangle(cornerRadius: DS.Radius.sm))
+            }
+            .buttonStyle(.plain)
+            .hoverFeedback()
+            .accessibilityLabel("Export daily work journal")
+
             daySummaryCard
         }
         .frame(width: 300)
@@ -152,14 +166,54 @@ struct TimelineTabView: View {
     private var daySummaryText: String {
         let blocks = viewModel.timelineBlocks
         let totalDuration = blocks.reduce(0.0) { $0 + $1.duration }
-        let topApp = Dictionary(grouping: blocks, by: \.app)
+        let appGroups = Dictionary(grouping: blocks, by: \.app)
+        let topApp = appGroups
             .max(by: { $0.value.reduce(0) { $0 + $1.duration } < $1.value.reduce(0) { $0 + $1.duration } })?
             .key ?? "Unknown"
-        let topCategory = Dictionary(grouping: blocks, by: \.category)
+        let catGroups = Dictionary(grouping: blocks, by: \.category)
+        let topCategory = catGroups
             .max(by: { $0.value.count < $1.value.count })?
             .key ?? .other
         let switches = zip(blocks.dropLast(), blocks.dropFirst()).filter { $0.0.app != $0.1.app }.count
-        return "\(AnalysisAggregator.format(duration: totalDuration)) tracked across \(blocks.count) sessions. Mostly \(topCategory.title.lowercased()) in \(topApp). \(switches) context switch\(switches == 1 ? "" : "es")."
+
+        var lines: [String] = []
+        lines.append("\(AnalysisAggregator.format(duration: totalDuration)) tracked across \(blocks.count) sessions.")
+        lines.append("")
+        lines.append("Primary focus: \(topCategory.title) in \(topApp)")
+        lines.append("\(switches) context switch\(switches == 1 ? "" : "es")")
+
+        // Top 5 apps by duration
+        let topApps = appGroups
+            .map { ($0.key, $0.value.reduce(0.0) { $0 + $1.duration }) }
+            .sorted { $0.1 > $1.1 }
+            .prefix(5)
+        if topApps.count > 1 {
+            lines.append("")
+            lines.append("Top apps:")
+            for (app, dur) in topApps {
+                lines.append("  \(app) — \(AnalysisAggregator.format(duration: dur))")
+            }
+        }
+
+        // Category split
+        let catSplit = catGroups
+            .map { ($0.key.title, $0.value.reduce(0.0) { $0 + $1.duration }) }
+            .sorted { $0.1 > $1.1 }
+        if catSplit.count > 1 {
+            lines.append("")
+            for (cat, dur) in catSplit {
+                let pct = totalDuration > 0 ? Int((dur / totalDuration) * 100) : 0
+                lines.append("  \(cat): \(pct)%")
+            }
+        }
+
+        // Time span
+        if let first = blocks.first, let last = blocks.last {
+            lines.append("")
+            lines.append("Active \(first.start.formatted(date: .omitted, time: .shortened)) – \(last.end.formatted(date: .omitted, time: .shortened))")
+        }
+
+        return lines.joined(separator: "\n")
     }
 
     private func connection(before index: Int) -> Bool {

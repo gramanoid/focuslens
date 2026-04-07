@@ -11,6 +11,7 @@ struct PreferencesView: View {
             VStack(alignment: .leading, spacing: DS.Spacing.xl) {
                 headerSection
                 trackingSection
+                journalSection
                 serverSection
                 appSection
                 updatesSection
@@ -241,6 +242,49 @@ struct PreferencesView: View {
                     ))
                     .textFieldStyle(.roundedBorder)
                     Text("Use comma-separated bundle IDs for apps FocusLens should ignore.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var journalSection: some View {
+        SurfaceCard(title: "Work Journal", subtitle: "Auto-generate a daily markdown journal summarizing your work.") {
+            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                Toggle(isOn: Binding(
+                    get: { appState.autoJournalEnabled },
+                    set: { appState.updateAutoJournal($0) }
+                )) {
+                    VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                        Text("Generate journal on quit")
+                        Text("Creates a markdown file when FocusLens exits, summarizing the day's activity.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    Text("Journal folder")
+                        .font(.subheadline.weight(.medium))
+                    HStack {
+                        TextField("~/Documents/FocusLens/journals", text: Binding(
+                            get: { appState.journalDirectoryPath },
+                            set: { appState.updateJournalDirectory($0) }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        Button("Browse") {
+                            let panel = NSOpenPanel()
+                            panel.canChooseDirectories = true
+                            panel.canChooseFiles = false
+                            panel.canCreateDirectories = true
+                            if panel.runModal() == .OK, let url = panel.url {
+                                appState.updateJournalDirectory(url.path)
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    Text("Journals are saved as YYYY-MM-DD.md with YAML frontmatter for easy indexing.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

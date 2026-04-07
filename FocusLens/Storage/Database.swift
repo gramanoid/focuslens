@@ -85,7 +85,130 @@ final class AppDatabase: @unchecked Sendable {
             try db.create(index: "analyses_timestamp_idx", on: "analyses", columns: ["timestamp"], ifNotExists: true)
         }
 
+        migrator.registerMigration("createSessionsFTS") { db in
+            try db.execute(sql: """
+                CREATE VIRTUAL TABLE IF NOT EXISTS sessions_fts USING fts5(
+                    task, app, content='sessions', content_rowid='id'
+                )
+            """)
+            try db.execute(sql: """
+                INSERT INTO sessions_fts(rowid, task, app)
+                SELECT id, task, app FROM sessions
+            """)
+            // Auto-sync triggers
+            try db.execute(sql: """
+                CREATE TRIGGER IF NOT EXISTS sessions_fts_ai AFTER INSERT ON sessions BEGIN
+                    INSERT INTO sessions_fts(rowid, task, app) VALUES (new.id, new.task, new.app);
+                END
+            """)
+            try db.execute(sql: """
+                CREATE TRIGGER IF NOT EXISTS sessions_fts_ad AFTER DELETE ON sessions BEGIN
+                    INSERT INTO sessions_fts(sessions_fts, rowid, task, app) VALUES('delete', old.id, old.task, old.app);
+                END
+            """)
+            try db.execute(sql: """
+                CREATE TRIGGER IF NOT EXISTS sessions_fts_au AFTER UPDATE ON sessions BEGIN
+                    INSERT INTO sessions_fts(sessions_fts, rowid, task, app) VALUES('delete', old.id, old.task, old.app);
+                    INSERT INTO sessions_fts(rowid, task, app) VALUES (new.id, new.task, new.app);
+                END
+            """)
+        }
+
+        migrator.registerMigration("createKeystrokesFTS") { db in
+            try db.execute(sql: """
+                CREATE VIRTUAL TABLE IF NOT EXISTS keystrokes_fts USING fts5(
+                    typed_text, app, content='keystrokes', content_rowid='id'
+                )
+            """)
+            try db.execute(sql: """
+                INSERT INTO keystrokes_fts(rowid, typed_text, app)
+                SELECT id, typed_text, app FROM keystrokes
+            """)
+            try db.execute(sql: """
+                CREATE TRIGGER IF NOT EXISTS keystrokes_fts_ai AFTER INSERT ON keystrokes BEGIN
+                    INSERT INTO keystrokes_fts(rowid, typed_text, app) VALUES (new.id, new.typed_text, new.app);
+                END
+            """)
+            try db.execute(sql: """
+                CREATE TRIGGER IF NOT EXISTS keystrokes_fts_ad AFTER DELETE ON keystrokes BEGIN
+                    INSERT INTO keystrokes_fts(keystrokes_fts, rowid, typed_text, app) VALUES('delete', old.id, old.typed_text, old.app);
+                END
+            """)
+            try db.execute(sql: """
+                CREATE TRIGGER IF NOT EXISTS keystrokes_fts_au AFTER UPDATE ON keystrokes BEGIN
+                    INSERT INTO keystrokes_fts(keystrokes_fts, rowid, typed_text, app) VALUES('delete', old.id, old.typed_text, old.app);
+                    INSERT INTO keystrokes_fts(rowid, typed_text, app) VALUES (new.id, new.typed_text, new.app);
+                END
+            """)
+        }
+
         return migrator
+    }
+
+    // MARK: - Search
+
+    func searchSessions(query: String, in interval: DateInterval? = nil, limit: Int = 50) throws -> [SessionRecord] {
+        try dbQueue.read { db in
+            let ftsQuery = query.split(separator: " ").map { "\($0)*" }.joined(separator: " ")
+            if let interval {
+                return try Row.fetchAll(
+                    db,
+                    sql: """
+                        SELECT s.*
+                        FROM sessions s
+                        JOIN sessions_fts ON sessions_fts.rowid = s.id
+                        WHERE sessions_fts MATCH ?
+                          AND s.timestamp >= ? AND s.timestamp < ?
+                        ORDER BY rank LIMIT ?
+                    """,
+                    arguments: [ftsQuery, interval.start.timeIntervalSince1970, interval.end.timeIntervalSince1970, limit]
+                ).map(SessionRecord.init(row:))
+            } else {
+                return try Row.fetchAll(
+                    db,
+                    sql: """
+                        SELECT s.*
+                        FROM sessions s
+                        JOIN sessions_fts ON sessions_fts.rowid = s.id
+                        WHERE sessions_fts MATCH ?
+                        ORDER BY rank LIMIT ?
+                    """,
+                    arguments: [ftsQuery, limit]
+                ).map(SessionRecord.init(row:))
+            }
+        }
+    }
+
+    func searchKeystrokes(query: String, in interval: DateInterval? = nil, limit: Int = 50) throws -> [KeystrokeRecord] {
+        try dbQueue.read { db in
+            let ftsQuery = query.split(separator: " ").map { "\($0)*" }.joined(separator: " ")
+            if let interval {
+                return try Row.fetchAll(
+                    db,
+                    sql: """
+                        SELECT k.*
+                        FROM keystrokes k
+                        JOIN keystrokes_fts ON keystrokes_fts.rowid = k.id
+                        WHERE keystrokes_fts MATCH ?
+                          AND k.timestamp >= ? AND k.timestamp < ?
+                        ORDER BY rank LIMIT ?
+                    """,
+                    arguments: [ftsQuery, interval.start.timeIntervalSince1970, interval.end.timeIntervalSince1970, limit]
+                ).map(KeystrokeRecord.init(row:))
+            } else {
+                return try Row.fetchAll(
+                    db,
+                    sql: """
+                        SELECT k.*
+                        FROM keystrokes k
+                        JOIN keystrokes_fts ON keystrokes_fts.rowid = k.id
+                        WHERE keystrokes_fts MATCH ?
+                        ORDER BY rank LIMIT ?
+                    """,
+                    arguments: [ftsQuery, limit]
+                ).map(KeystrokeRecord.init(row:))
+            }
+        }
     }
 
     @discardableResult

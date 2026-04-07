@@ -119,11 +119,36 @@ private final class MutableSegment {
         self.endTime = startTime
     }
 
+    private static let allowedCharacters: CharacterSet = {
+        var set = CharacterSet.letters
+        set.formUnion(.decimalDigits)
+        set.formUnion(.punctuationCharacters)
+        set.formUnion(.symbols)
+        set.formUnion(.whitespaces)
+        set.insert(charactersIn: "\n\r\t")
+        return set
+    }()
+
     func append(_ characters: String, at time: Date) {
         keystrokeCount += 1
         endTime = time
+
+        // Handle backspace/delete: remove last character instead of appending
+        if characters == "\u{7F}" || characters == "\u{8}" {
+            if !textBuffer.isEmpty {
+                textBuffer.removeLast()
+            }
+            return
+        }
+
+        // Only record letters, numbers, punctuation, symbols, and whitespace.
+        // This filters out arrow keys, function keys, escape, and other control characters.
+        let filtered = characters.unicodeScalars.filter { Self.allowedCharacters.contains($0) }
+        guard !filtered.isEmpty else { return }
+        let clean = String(String.UnicodeScalarView(filtered))
+
         if textBuffer.count < KeystrokeMonitor.maxTextLength {
-            textBuffer.append(characters)
+            textBuffer.append(clean)
         }
     }
 
