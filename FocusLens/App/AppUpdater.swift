@@ -32,6 +32,7 @@ final class AppUpdater: ObservableObject {
 
     private static let repo = "gramanoid/focuslens"
     private static let apiURL = URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!
+    private(set) var lastDownloadedDMG: URL?
 
     var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -86,8 +87,22 @@ final class AppUpdater: ObservableObject {
         status = .downloading(progress: 0)
         do {
             let tempDMG = try await downloadDMG(from: url)
+            lastDownloadedDMG = tempDMG
             status = .installing
             try await installFromDMG(tempDMG)
+        } catch {
+            status = .failed(error.localizedDescription)
+        }
+    }
+
+    func retryInstall() async {
+        guard let dmg = lastDownloadedDMG, FileManager.default.fileExists(atPath: dmg.path) else {
+            status = .failed("Downloaded DMG not found. Please download again.")
+            return
+        }
+        status = .installing
+        do {
+            try await installFromDMG(dmg)
         } catch {
             status = .failed(error.localizedDescription)
         }
@@ -160,25 +175,35 @@ final class AppUpdater: ObservableObject {
     private func mountDMG(_ path: URL) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
-        process.arguments = ["attach", path.path, "-nobrowse", "-quiet", "-mountrandom", "/tmp"]
+        process.arguments = ["attach", path.path, "-nobrowse", "-plist", "-mountrandom", "/tmp"]
         let pipe = Pipe()
+        let errPipe = Pipe()
         process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
+        process.standardError = errPipe
         try process.run()
         process.waitUntilExit()
 
+        let outData = pipe.fileHandleForReading.readDataToEndOfFile()
+
         guard process.terminationStatus == 0 else {
-            throw UpdateError.mountFailed
+            let errText = String(data: errPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            throw UpdateError.mountFailedDetail(errText.isEmpty ? "hdiutil exited with code \(process.terminationStatus)" : errText)
         }
 
-        let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-        // hdiutil output: last column is the mount point
-        guard let mountLine = output.split(separator: "\n").last,
-              let mountPoint = mountLine.split(separator: "\t").last else {
-            throw UpdateError.mountFailed
+        // Parse plist output for mount point
+        guard let plist = try? PropertyListSerialization.propertyList(from: outData, format: nil) as? [String: Any],
+              let entities = plist["system-entities"] as? [[String: Any]],
+              let mountPoint = entities.compactMap({ $0["mount-point"] as? String }).first else {
+            // Fallback: parse tab-separated text output
+            let output = String(data: outData, encoding: .utf8) ?? ""
+            guard let mountLine = output.split(separator: "\n").last,
+                  let lastCol = mountLine.split(separator: "\t").last else {
+                throw UpdateError.mountFailedDetail("Could not find mount point in hdiutil output")
+            }
+            return String(lastCol).trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
-        return String(mountPoint).trimmingCharacters(in: .whitespacesAndNewlines)
+        return mountPoint
     }
 
     private func detachDMG(_ mountPoint: String) {
@@ -253,13 +278,13 @@ private struct GitHubAsset: Decodable {
 
 private enum UpdateError: LocalizedError {
     case downloadFailed
-    case mountFailed
+    case mountFailedDetail(String)
     case noAppInDMG
 
     var errorDescription: String? {
         switch self {
         case .downloadFailed: "Failed to download the update."
-        case .mountFailed: "Failed to open the downloaded DMG."
+        case .mountFailedDetail(let detail): "Failed to open DMG: \(detail)"
         case .noAppInDMG: "No application found in the update package."
         }
     }

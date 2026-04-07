@@ -545,11 +545,21 @@ struct PreferencesView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        Button("Retry") {
-                            Task { await updater.checkForUpdates() }
+                        HStack(spacing: DS.Spacing.sm) {
+                            if updater.lastDownloadedDMG != nil {
+                                Button("Retry Install") {
+                                    Task { await updater.retryInstall() }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(DS.Accent.primary)
+                                .hoverFeedback()
+                            }
+                            Button("Check Again") {
+                                Task { await updater.checkForUpdates() }
+                            }
+                            .buttonStyle(.bordered)
+                            .hoverFeedback()
                         }
-                        .buttonStyle(.bordered)
-                        .hoverFeedback()
                     }
                 }
             }
