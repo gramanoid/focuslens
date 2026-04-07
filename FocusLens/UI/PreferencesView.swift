@@ -100,22 +100,36 @@ struct PreferencesView: View {
                 }
 
                 if appState.keystrokeTrackingEnabled && !appState.accessibilityPermissionGranted {
-                    HStack(spacing: DS.Spacing.sm) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(DS.Accent.warning)
-                        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                            Text("Accessibility permission required")
-                                .font(.subheadline.weight(.medium))
-                            Text("FocusLens needs Input Monitoring access to record keystrokes.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                        HStack(spacing: DS.Spacing.sm) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(DS.Accent.warning)
+                            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                                Text("Accessibility permission required")
+                                    .font(.subheadline.weight(.medium))
+                                Text("Enable FocusLens in System Settings → Privacy & Security → Accessibility, then click Check Again below.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                        Spacer()
-                        Button("Grant Access") {
-                            appState.requestAccessibilityPermission()
+                        HStack(spacing: DS.Spacing.sm) {
+                            Button("Open Settings") {
+                                KeystrokeMonitor.openAccessibilitySettings()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(DS.Accent.warning)
+                            Button("Check Again") {
+                                appState.refreshPermissionState()
+                                if appState.accessibilityPermissionGranted {
+                                    appState.updateKeystrokeTracking(true)
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .hoverFeedback()
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(DS.Accent.warning)
+                        Text("If already enabled, quit and relaunch FocusLens — macOS requires a restart to activate Accessibility permissions.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
                     }
                     .padding(DS.Spacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)

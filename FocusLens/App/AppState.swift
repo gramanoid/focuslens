@@ -320,8 +320,12 @@ final class AppState: ObservableObject {
     }
 
     func requestAccessibilityPermission() {
-        KeystrokeMonitor.requestAccessibilityPermission()
-        refreshPermissionState()
+        KeystrokeMonitor.openAccessibilitySettings()
+        // Refresh after a delay to catch if permission was already granted
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            refreshPermissionState()
+        }
     }
 
     func updateKeystrokeTracking(_ enabled: Bool) {
