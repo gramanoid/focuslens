@@ -95,7 +95,7 @@ final class AppState: ObservableObject {
         customModelPath = defaults.string(forKey: Keys.customModelPath) ?? ""
         customMmprojPath = defaults.string(forKey: Keys.customMmprojPath) ?? ""
         screenshotDirectoryPath = defaults.string(forKey: Keys.screenshotDirectory) ?? ""
-        screenshotRetentionDays = defaults.object(forKey: Keys.screenshotRetentionDays) as? Int ?? 7
+        screenshotRetentionDays = defaults.object(forKey: Keys.screenshotRetentionDays) as? Int ?? 1
 
         Task {
             await bootstrap()
