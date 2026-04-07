@@ -1,19 +1,32 @@
 # FocusLens
 
-A native macOS menu bar app that silently captures your screen, classifies your activity with a local vision model, and visualizes your work patterns — all without sending a single byte off your Mac.
+A native macOS menu bar app that silently captures your screen and keystrokes, classifies your activity with a local vision model, and visualizes your work patterns — all without sending a single byte off your Mac.
 
 ## What It Does
 
-FocusLens takes periodic screenshots, sends them to a local `llama.cpp` vision server running on your machine, and builds a searchable timeline of what you were working on. Think of it as a private activity journal powered by on-device AI.
+FocusLens takes periodic screenshots, records what you type, sends both to a local `llama.cpp` vision server running on your machine, and builds a searchable timeline of what you were working on. Think of it as a private activity journal powered by on-device AI — with three layers of signal for maximum accuracy.
+
+### Three Layers of Tracking
+
+| Layer | What It Captures | How It Helps |
+| --- | --- | --- |
+| **Screenshots** | Periodic screen captures at configurable intervals | Visual context — what's on screen |
+| **OCR + Vision** | Local vision model classifies app, category, and task | Structured activity data |
+| **Keystrokes** | Actual characters typed, grouped by app | Ground truth — what you wrote, coded, or sent |
+
+A screenshot of Slack is ambiguous. A screenshot of Slack + "typed 'let's push the deadline to Friday'" gives the model definitive context.
+
+### Features
 
 - **Menu bar app** — lives in your menu bar, no Dock icon, no distractions
 - **Local-only AI** — all inference runs on your Mac via `llama-server`
+- **Keystroke tracking** — records typed text per-app, injects into classification prompt for richer analysis
 - **Auto model management** — pick from 4 recommended models, FocusLens downloads and starts the server for you
 - **Activity timeline** — scrollable card-based view with app icons, task descriptions, and confidence scores
 - **Insights dashboard** — category breakdown, hourly heatmap, focus score trends, context switch tracking
-- **AI analysis** — ask your local model to analyze your productivity patterns
+- **AI analysis** — ask your local model to analyze your productivity patterns with keystroke context
 - **CSV / JSON / Markdown export** — get your data out in any format
-- **Privacy-first** — screenshots can be auto-deleted after classification, everything stays in `~/Library/Application Support/FocusLens/`
+- **Privacy-first** — screenshots can be auto-deleted, keystrokes stored locally, password fields auto-skipped
 
 ## Requirements
 
@@ -43,7 +56,8 @@ swift build
 ## First Launch
 
 1. **Grant Screen Recording** — macOS will prompt you, or use the in-app setup flow
-2. **Select a model** — open Preferences and pick from the recommended models:
+2. **Grant Accessibility** (optional) — enables keystroke tracking for richer classification
+3. **Select a model** — open Preferences and pick from the recommended models:
 
 | Model | Size | Best For |
 | --- | --- | --- |
@@ -61,8 +75,8 @@ swift build
 FocusLens/
 ├── App/          # AppState, app lifecycle
 ├── AI/           # LlamaCppClient, ModelDefinition, ModelDownloadManager, ServerProcessManager
-├── Capture/      # Screen capture with CGWindowListCreateImage
-├── Storage/      # SQLite via GRDB (sessions + analyses)
+├── Capture/      # Screen capture + keystroke monitoring
+├── Storage/      # SQLite via GRDB (sessions, keystrokes, analyses)
 ├── UI/           # SwiftUI views, design tokens (DS enum)
 │   └── ActivityExplorer/
 │       ├── TimelineTab/    # Card timeline + Gantt view
@@ -96,6 +110,9 @@ Screenshots are saved as `YYYY-MM-DD_HH-mm-ss_AppName.png`.
 - All inference runs on localhost via `llama-server` — no cloud APIs
 - No telemetry, no analytics, no network calls beyond `localhost`
 - Screenshots are optional and can be auto-deleted after classification
+- Keystroke data is stored locally in the same SQLite database — never leaves your Mac
+- Password fields are automatically skipped (macOS secure input returns nil to global monitors)
+- Keystroke tracking is optional and can be toggled off in Preferences
 - Communication apps that block screen capture (Telegram, WhatsApp) are detected and handled gracefully
 
 ## License
