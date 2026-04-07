@@ -90,7 +90,7 @@ extension LlamaCppClient {
 
         let response = try await complete(payload, baseURL: baseURL, timeout: 30)
         let content = response.choices.first?.message.content ?? ""
-        return Self.parseClassification(from: content)
+        return Self.parseClassification(from: content, fallbackApp: frontmostAppName)
     }
 
     func streamAnalysis(systemPrompt: String, userPrompt: String, baseURL: URL) -> AsyncThrowingStream<String, Error> {
@@ -184,9 +184,9 @@ extension LlamaCppClient {
         }
     }
 
-    static func parseClassification(from content: String) -> ClassificationResult {
+    static func parseClassification(from content: String, fallbackApp: String? = nil) -> ClassificationResult {
         guard let jsonBlock = extractJSONBlock(from: content) else {
-            return .unknown(from: content)
+            return fallbackResult(from: content, fallbackApp: fallbackApp)
         }
 
         do {
@@ -199,8 +199,22 @@ extension LlamaCppClient {
                 rawResponse: content
             )
         } catch {
-            return .unknown(from: content)
+            return fallbackResult(from: content, fallbackApp: fallbackApp)
         }
+    }
+
+    /// When the model returns unparseable text, salvage what we can instead of showing "Unknown 0%".
+    private static func fallbackResult(from content: String, fallbackApp: String?) -> ClassificationResult {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Use the raw response as the task description (truncated), with the OS-reported app name
+        let task = trimmed.isEmpty ? "Model returned empty response" : String(trimmed.prefix(120))
+        return ClassificationResult(
+            app: fallbackApp ?? "Unknown",
+            category: .other,
+            task: task,
+            confidence: 0.3,
+            rawResponse: content
+        )
     }
 
     static func extractJSONBlock(from content: String) -> String? {
