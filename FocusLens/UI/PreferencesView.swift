@@ -175,6 +175,26 @@ struct PreferencesView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+
+                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                        Text("Auto-delete after")
+                            .font(.subheadline.weight(.medium))
+                        Picker("", selection: Binding(
+                            get: { appState.screenshotRetentionDays },
+                            set: { appState.updateScreenshotRetention($0) }
+                        )) {
+                            Text("1 day").tag(1)
+                            Text("3 days").tag(3)
+                            Text("7 days").tag(7)
+                            Text("14 days").tag(14)
+                            Text("30 days").tag(30)
+                            Text("Never").tag(0)
+                        }
+                        .pickerStyle(.segmented)
+                        Text("At 30s intervals, screenshots use ~2.6 GB/day. Older screenshots are deleted on launch.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: DS.Spacing.sm) {

@@ -53,6 +53,7 @@ final class AppState: ObservableObject {
     @Published var customModelPath: String
     @Published var customMmprojPath: String
     @Published var screenshotDirectoryPath: String
+    @Published var screenshotRetentionDays: Int
 
     let database: AppDatabase
     let llamaClient: LlamaCppClient
@@ -94,6 +95,7 @@ final class AppState: ObservableObject {
         customModelPath = defaults.string(forKey: Keys.customModelPath) ?? ""
         customMmprojPath = defaults.string(forKey: Keys.customMmprojPath) ?? ""
         screenshotDirectoryPath = defaults.string(forKey: Keys.screenshotDirectory) ?? ""
+        screenshotRetentionDays = defaults.object(forKey: Keys.screenshotRetentionDays) as? Int ?? 7
 
         Task {
             await bootstrap()
@@ -217,6 +219,7 @@ final class AppState: ObservableObject {
             keystrokeMonitor.start(excludedBundleIDs: excludedBundleIDs)
         }
 
+        cleanupOldScreenshots()
         startHealthChecks()
         updateScheduler()
         startSleepWakeObserver()
@@ -542,6 +545,36 @@ final class AppState: ObservableObject {
         defaults.set(path, forKey: Keys.screenshotDirectory)
     }
 
+    func updateScreenshotRetention(_ days: Int) {
+        screenshotRetentionDays = days
+        defaults.set(days, forKey: Keys.screenshotRetentionDays)
+    }
+
+    func cleanupOldScreenshots() {
+        guard keepScreenshots, screenshotRetentionDays > 0 else { return }
+        let cutoff = Date().addingTimeInterval(-Double(screenshotRetentionDays) * 86400)
+        let fm = FileManager.default
+        guard let dir = try? ImageHelpers.screenshotsDirectory(customPath: screenshotDirectoryPath.isEmpty ? nil : screenshotDirectoryPath) else { return }
+        guard let files = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.creationDateKey]) else { return }
+        var deletedCount = 0
+        for file in files where file.pathExtension == "png" {
+            guard let attrs = try? file.resourceValues(forKeys: [.creationDateKey]),
+                  let created = attrs.creationDate,
+                  created < cutoff else { continue }
+            try? fm.removeItem(at: file)
+            deletedCount += 1
+        }
+        if deletedCount > 0 {
+            // Clear screenshot_path references in old sessions
+            try? database.dbQueue.write { db in
+                try db.execute(
+                    sql: "UPDATE sessions SET screenshot_path = NULL WHERE timestamp < ?",
+                    arguments: [cutoff.timeIntervalSince1970]
+                )
+            }
+        }
+    }
+
     func downloadAndStartModel(_ model: ModelDefinition) {
         Task {
             await downloadManager.download(model)
@@ -642,5 +675,6 @@ final class AppState: ObservableObject {
         static let screenshotDirectory = "focuslens.screenshotDirectory"
         static let keystrokeTrackingEnabled = "focuslens.keystrokeTrackingEnabled"
         static let hasCompletedFirstCapture = "focuslens.hasCompletedFirstCapture"
+        static let screenshotRetentionDays = "focuslens.screenshotRetentionDays"
     }
 }
