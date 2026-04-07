@@ -69,7 +69,7 @@ enum ImageHelpers {
     /// Returns true if the image is predominantly black/blank (> 95% near-black pixels).
     /// Communication apps like Telegram and WhatsApp often render as solid black
     /// due to macOS window sharing restrictions.
-    static func isBlankCapture(_ cgImage: CGImage, threshold: Double = 0.95) -> Bool {
+    static func isBlankCapture(_ cgImage: CGImage, threshold: Double = 0.98) -> Bool {
         let sampleSize = 64
         guard let context = CGContext(
             data: nil,

@@ -191,6 +191,35 @@ final class AppDatabase: @unchecked Sendable {
         }
     }
 
+    func fetchLowQualitySessions(limit: Int = 20) throws -> [SessionRecord] {
+        try dbQueue.read { db in
+            try Row.fetchAll(
+                db,
+                sql: """
+                SELECT * FROM sessions
+                WHERE (category = 'other' OR category = 'unknown' OR confidence < 0.5)
+                AND screenshot_path IS NOT NULL
+                AND category != 'sleeping'
+                ORDER BY timestamp DESC
+                LIMIT ?
+                """,
+                arguments: [limit]
+            ).map(SessionRecord.init(row:))
+        }
+    }
+
+    func updateSession(id: Int64, category: String, task: String, confidence: Double, rawResponse: String?) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                UPDATE sessions SET category = ?, task = ?, confidence = ?, raw_response = ?
+                WHERE id = ?
+                """,
+                arguments: [category, task, confidence, rawResponse, id]
+            )
+        }
+    }
+
     // MARK: - Keystrokes
 
     func saveKeystrokes(_ records: [KeystrokeRecord]) throws {

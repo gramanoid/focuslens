@@ -223,6 +223,7 @@ final class AppState: ObservableObject {
         startHealthChecks()
         updateScheduler()
         startSleepWakeObserver()
+        startReanalysisTimer()
     }
 
     func toggleRunning() {
@@ -672,6 +673,54 @@ final class AppState: ObservableObject {
 
     func stopServer() {
         serverProcess.stop()
+    }
+
+    // MARK: - Re-analysis of Low-Quality Sessions
+
+    func runReanalysis() {
+        guard serverReachable, let baseURL = serverBaseURL else { return }
+        Task {
+            guard let sessions = try? database.fetchLowQualitySessions(limit: 10) else { return }
+            for session in sessions {
+                guard let path = session.screenshotPath,
+                      FileManager.default.fileExists(atPath: path),
+                      let image = NSImage(contentsOfFile: path)?.cgImage(forProposedRect: nil, context: nil, hints: nil),
+                      let resized = ImageHelpers.resizedPNGData(from: image) else { continue }
+
+                do {
+                    let result = try await llamaClient.classifyImage(
+                        resized,
+                        baseURL: baseURL,
+                        frontmostAppName: session.app,
+                        frontmostBundleID: session.bundleID
+                    )
+                    let finalCategory = knownCategory(for: session.bundleID) ?? result.category
+                    guard let sessionID = session.id else { continue }
+                    try database.updateSession(
+                        id: sessionID,
+                        category: finalCategory.rawValue,
+                        task: result.task,
+                        confidence: result.confidence,
+                        rawResponse: result.rawResponse
+                    )
+                } catch {
+                    continue
+                }
+            }
+            refreshRecentEntries()
+            refreshTodaySummary()
+        }
+    }
+
+    private func startReanalysisTimer() {
+        Task {
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: 3 * 3600 * 1_000_000_000) // Every 3 hours
+                } catch { break }
+                runReanalysis()
+            }
+        }
     }
 
     // MARK: - Sleep / Wake Detection
