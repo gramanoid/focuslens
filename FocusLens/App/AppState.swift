@@ -537,6 +537,14 @@ final class AppState: ObservableObject {
 
     func startServer() {
         serverProcess.start(model: activeModel)
+        // Poll health quickly after start so the UI updates without waiting 30s
+        Task {
+            for _ in 0..<10 {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                await checkServerHealth()
+                if serverReachable { break }
+            }
+        }
     }
 
     func stopServer() {
