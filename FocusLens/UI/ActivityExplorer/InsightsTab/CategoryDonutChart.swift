@@ -18,7 +18,7 @@ struct CategoryDonutChart: View {
                     )
                     .foregroundStyle(summary.category.color)
                 }
-                .frame(height: 260)
+                .frame(height: 200)
             } else {
                 Chart(summaries) { summary in
                     BarMark(
@@ -27,7 +27,7 @@ struct CategoryDonutChart: View {
                     )
                     .foregroundStyle(summary.category.color)
                 }
-                .frame(height: 260)
+                .frame(height: 200)
             }
 
             ForEach(summaries) { summary in

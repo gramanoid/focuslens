@@ -34,9 +34,11 @@ struct SavedAnalysesList: View {
                                 Button("Open") {
                                     onOpen(analysis)
                                 }
+                                .accessibilityLabel("Open \(analysis.type.rawValue) analysis from \(analysis.timestamp.formatted(date: .abbreviated, time: .shortened))")
                                 Button("Delete", role: .destructive) {
                                     onDelete(analysis)
                                 }
+                                .accessibilityLabel("Delete \(analysis.type.rawValue) analysis from \(analysis.timestamp.formatted(date: .abbreviated, time: .shortened))")
                             }
                             .padding(DS.Spacing.lg)
                             .background(DS.Surface.card, in: RoundedRectangle(cornerRadius: DS.Radius.md))

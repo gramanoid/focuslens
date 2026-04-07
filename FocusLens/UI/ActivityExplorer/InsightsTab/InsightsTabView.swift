@@ -5,7 +5,7 @@ struct InsightsTabView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: DS.Spacing.xl) {
+            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                 HStack(alignment: .top) {
                     DateRangeSelectorView(selection: $viewModel.selectedDateRange)
                     Spacer()
@@ -26,21 +26,24 @@ struct InsightsTabView: View {
                     contextSwitches: viewModel.contextSwitchesText
                 )
 
-                HStack(alignment: .top, spacing: DS.Spacing.xl) {
+                HStack(alignment: .top, spacing: DS.Spacing.lg) {
                     CategoryDonutChart(summaries: viewModel.categorySummaries)
                     HourlyHeatmap(cells: viewModel.hourlyHeatmap) { day, hour in
                         viewModel.jumpTo(day: day, hour: hour)
                     }
                 }
 
-                HStack(alignment: .top, spacing: DS.Spacing.xl) {
+                HStack(spacing: DS.Spacing.lg) {
                     AppUsageChart(data: viewModel.appUsage)
+                        .frame(maxHeight: .infinity)
                     FocusScoreChart(points: viewModel.focusTrend)
+                        .frame(maxHeight: .infinity)
                 }
+                .fixedSize(horizontal: false, vertical: true)
 
                 ContextSwitchChart(points: viewModel.switchTrend)
             }
-            .padding(.bottom, DS.Spacing.xl)
+            .padding(.bottom, DS.Spacing.lg)
         }
     }
 }

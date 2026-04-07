@@ -5,6 +5,7 @@ import SwiftUI
 enum ActivityExplorerTab: String, CaseIterable, Identifiable {
     case timeline = "Timeline"
     case insights = "Insights"
+    case keystrokes = "Keystrokes"
     case aiAnalysis = "AI Analysis"
 
     var id: String { rawValue }
@@ -64,6 +65,7 @@ final class ActivityExplorerViewModel: ObservableObject {
     @Published private(set) var cachedHourlyHeatmap: [HourlyHeatCell] = []
     @Published private(set) var cachedSwitchTrend: [HourlySwitchPoint] = []
     @Published private(set) var cachedAllApps: [String] = []
+    @Published private(set) var rangeKeystrokes: [KeystrokeRecord] = []
 
     let appState: AppState
 
@@ -146,6 +148,7 @@ final class ActivityExplorerViewModel: ObservableObject {
         cachedFocusTrend = AnalysisAggregator.focusScoreTrend(blocks: blocks, interval: interval)
         cachedHourlyHeatmap = AnalysisAggregator.hourlyHeatmap(blocks: blocks, interval: interval)
         cachedSwitchTrend = AnalysisAggregator.averageSwitchesByHour(blocks: blocks, interval: interval)
+        rangeKeystrokes = (try? appState.database.fetchKeystrokes(in: interval)) ?? []
     }
 
     func reloadAnalyses() {
@@ -226,6 +229,21 @@ final class ActivityExplorerViewModel: ObservableObject {
                 isGeneratingAnalysis = false
             }
         }
+    }
+
+    func autoLoadAnalysis() {
+        // If there's already a response or generation in progress, skip.
+        guard analysisResponse.isEmpty, !isGeneratingAnalysis else { return }
+
+        // Try to load the most recent saved analysis first.
+        if let latest = analyses.first {
+            open(latest)
+            return
+        }
+
+        // No saved analyses — auto-generate if server is reachable and data exists.
+        guard appState.serverReachable, !rangeSessions.isEmpty else { return }
+        generateAnalysis()
     }
 
     func open(_ analysis: AnalysisRecord) {
@@ -339,6 +357,8 @@ struct ActivityExplorerView: View {
                     TimelineTabView(viewModel: viewModel)
                 case .insights:
                     InsightsTabView(viewModel: viewModel)
+                case .keystrokes:
+                    KeystrokesTabView(viewModel: viewModel)
                 case .aiAnalysis:
                     AIAnalysisTabView(viewModel: viewModel)
                 }
@@ -355,6 +375,11 @@ struct ActivityExplorerView: View {
         }
         .onChange(of: viewModel.selectedDateRange) { _ in
             viewModel.reloadRange()
+        }
+        .onChange(of: viewModel.selectedTab) { tab in
+            if tab == .aiAnalysis {
+                viewModel.autoLoadAnalysis()
+            }
         }
         .alert("Export Error", isPresented: Binding(
             get: { viewModel.exportError != nil },

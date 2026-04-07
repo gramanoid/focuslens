@@ -54,6 +54,8 @@ final class AppState: ObservableObject {
     @Published var customMmprojPath: String
     @Published var screenshotDirectoryPath: String
     @Published var screenshotRetentionDays: Int
+    @Published var idleThresholdMinutes: Int
+    @Published var isUserIdle = false
 
     let database: AppDatabase
     let llamaClient: LlamaCppClient
@@ -96,6 +98,7 @@ final class AppState: ObservableObject {
         customMmprojPath = defaults.string(forKey: Keys.customMmprojPath) ?? ""
         screenshotDirectoryPath = defaults.string(forKey: Keys.screenshotDirectory) ?? ""
         screenshotRetentionDays = defaults.object(forKey: Keys.screenshotRetentionDays) as? Int ?? 1
+        idleThresholdMinutes = defaults.object(forKey: Keys.idleThresholdMinutes) as? Int ?? 2
 
         Task {
             await bootstrap()
@@ -560,6 +563,17 @@ final class AppState: ObservableObject {
         isCaptureInFlight = true
         defer { isCaptureInFlight = false }
 
+        // Skip capture when user is idle (no keyboard/mouse activity).
+        // This prevents duplicate screenshots when caffeine apps keep the screen on.
+        let idleSeconds = Self.userIdleSeconds()
+        let threshold = Double(idleThresholdMinutes) * 60
+        if !manual && threshold > 0 && idleSeconds >= threshold {
+            isUserIdle = true
+            captureStatus = .idle
+            return
+        }
+        isUserIdle = false
+
         do {
             captureStatus = .capturing
 
@@ -692,6 +706,11 @@ final class AppState: ObservableObject {
     func updateScreenshotRetention(_ days: Int) {
         screenshotRetentionDays = days
         defaults.set(days, forKey: Keys.screenshotRetentionDays)
+    }
+
+    func updateIdleThreshold(_ minutes: Int) {
+        idleThresholdMinutes = minutes
+        defaults.set(minutes, forKey: Keys.idleThresholdMinutes)
     }
 
     func cleanupOldScreenshots() {
@@ -868,5 +887,14 @@ final class AppState: ObservableObject {
         static let keystrokeTrackingEnabled = "focuslens.keystrokeTrackingEnabled"
         static let hasCompletedFirstCapture = "focuslens.hasCompletedFirstCapture"
         static let screenshotRetentionDays = "focuslens.screenshotRetentionDays"
+        static let idleThresholdMinutes = "focuslens.idleThresholdMinutes"
+    }
+
+    /// Returns seconds since last keyboard or mouse event (HID-level, unaffected by caffeine apps).
+    static func userIdleSeconds() -> Double {
+        let keyboard = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .keyDown)
+        let mouse = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .mouseMoved)
+        let click = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .leftMouseDown)
+        return min(keyboard, mouse, click)
     }
 }

@@ -118,7 +118,7 @@ struct HoverFeedback: ViewModifier {
     func body(content: Content) -> some View {
         content
             .brightness(isHovered ? 0.06 : 0)
-            .animation(.easeOut(duration: DS.Motion.fast), value: isHovered)
+            .motionSafe(.easeOut(duration: DS.Motion.fast), value: isHovered)
             .onHover { isHovered = $0 }
     }
 }

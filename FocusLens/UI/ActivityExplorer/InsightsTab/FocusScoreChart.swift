@@ -6,26 +6,26 @@ struct FocusScoreChart: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            Text("Focus Score Over Time")
+            Text("Productivity Score")
                 .font(.system(.headline, design: .rounded, weight: .bold))
             Chart(points) { point in
                 LineMark(
                     x: .value("Date", point.date),
-                    y: .value("Focus", point.score)
+                    y: .value("Score", point.score)
                 )
                 .foregroundStyle(DS.Accent.primary)
                 AreaMark(
                     x: .value("Date", point.date),
-                    y: .value("Focus", point.score)
+                    y: .value("Score", point.score)
                 )
                 .foregroundStyle(DS.Accent.primary.opacity(DS.Emphasis.subtle))
             }
             .chartYScale(domain: 0 ... 100)
-            .frame(height: 260)
+            .frame(minHeight: 200)
         }
         .padding(DS.Spacing.lg)
         .background(DS.Surface.card, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Focus score over time chart")
+        .accessibilityLabel("Productivity score over time chart")
     }
 }

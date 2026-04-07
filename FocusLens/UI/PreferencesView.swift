@@ -205,6 +205,33 @@ struct PreferencesView: View {
                     }
                 }
 
+                VStack(alignment: .leading, spacing: DS.Spacing.smMd) {
+                    HStack {
+                        Text("Idle detection")
+                            .font(.subheadline.weight(.medium))
+                        Spacer()
+                        if appState.isUserIdle {
+                            Text("Currently idle")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(DS.Accent.caution)
+                        }
+                    }
+                    Picker("", selection: Binding(
+                        get: { appState.idleThresholdMinutes },
+                        set: { appState.updateIdleThreshold($0) }
+                    )) {
+                        Text("Off").tag(0)
+                        Text("1 min").tag(1)
+                        Text("2 min").tag(2)
+                        Text("5 min").tag(5)
+                        Text("10 min").tag(10)
+                    }
+                    .pickerStyle(.segmented)
+                    Text("Pauses capture when no keyboard or mouse activity is detected. Prevents duplicate screenshots when caffeine apps keep the screen on.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                     Text("Excluded apps")
                         .font(.subheadline.weight(.medium))

@@ -33,6 +33,7 @@
 		8084987BC83C17806AC3882A /* GanttView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B342F81E57C628C27D809675 /* GanttView.swift */; };
 		821A9D007B492ECA7C39BF54 /* CategoryDonutChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1496436F8F1D096163708AD6 /* CategoryDonutChart.swift */; };
 		8D59CE1A86276439C80C2F81 /* AnalysisAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B595603A6AB8F51AEA83BC25 /* AnalysisAggregator.swift */; };
+		99428020F490F91723282CDB /* KeystrokesTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E30007DF18CE359035796891 /* KeystrokesTabView.swift */; };
 		9D99A9FD7D98593E3E120444 /* FocusScoreChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEC6ABE1DE2CEDFCE7B809F5 /* FocusScoreChart.swift */; };
 		A15A90333B778A33A64503F4 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = E4C2F36DB8A89C866799D449 /* AppIcon.icns */; };
 		A60434EC79160A72D08433A9 /* PreferencesWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E83C8AB83570F6662C330B0 /* PreferencesWindow.swift */; };
@@ -89,6 +90,7 @@
 		D4D2E14DBAF1662B2734FDD8 /* InsightsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsTabView.swift; sourceTree = "<group>"; };
 		DC0D52E0ED437B0E38803872 /* AnalysisRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisRecord.swift; sourceTree = "<group>"; };
 		DEC6ABE1DE2CEDFCE7B809F5 /* FocusScoreChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusScoreChart.swift; sourceTree = "<group>"; };
+		E30007DF18CE359035796891 /* KeystrokesTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeystrokesTabView.swift; sourceTree = "<group>"; };
 		E4C2F36DB8A89C866799D449 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		E6C8D800C918DCCF0570CB47 /* SavedAnalysesList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedAnalysesList.swift; sourceTree = "<group>"; };
 		E969511DFD32E489A3CA64AD /* KeystrokeRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeystrokeRecord.swift; sourceTree = "<group>"; };
@@ -147,6 +149,7 @@
 				765AEE5628731550FE8119E0 /* ActivityExplorerWindow.swift */,
 				C01EBEB40757552E14926CEE /* AIAnalysisTab */,
 				EE543135FB099455A13F36F5 /* InsightsTab */,
+				AC64E093285D6FD378CC0182 /* KeystrokesTab */,
 				3D5A945B53D0153340E3DBC4 /* TimelineTab */,
 			);
 			path = ActivityExplorer;
@@ -194,6 +197,14 @@
 				82A7828086E2F67EF79C9BFC /* FocusLensApp.swift */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		AC64E093285D6FD378CC0182 /* KeystrokesTab */ = {
+			isa = PBXGroup;
+			children = (
+				E30007DF18CE359035796891 /* KeystrokesTabView.swift */,
+			);
+			path = KeystrokesTab;
 			sourceTree = "<group>";
 		};
 		C01EBEB40757552E14926CEE /* AIAnalysisTab */ = {
@@ -362,6 +373,7 @@
 				CCABDB1EBC095DEA10BC3308 /* InsightsTabView.swift in Sources */,
 				046292DDBBF403CC505D7034 /* KeystrokeMonitor.swift in Sources */,
 				3C04CF76AA3D5F70B529176E /* KeystrokeRecord.swift in Sources */,
+				99428020F490F91723282CDB /* KeystrokesTabView.swift in Sources */,
 				CA458D32FD16D86A6623A586 /* LlamaCppClient.swift in Sources */,
 				161757DA5229965734B997BA /* MenuBarPopover.swift in Sources */,
 				7E3870EFF4887202FCAB39C8 /* ModelDefinition.swift in Sources */,
@@ -440,7 +452,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.6.1;
+				MARKETING_VERSION = 1.7.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -519,7 +531,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.6.1;
+				MARKETING_VERSION = 1.7.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alexgrama.FocusLens;

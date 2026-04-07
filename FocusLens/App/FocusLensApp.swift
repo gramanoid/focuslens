@@ -31,7 +31,7 @@ struct FocusLensApp: App {
             MenuBarPopover(appState: appState, keystrokeMonitor: appState.keystrokeMonitor)
                 .environmentObject(appState)
         } label: {
-            StatusMenuBarLabel(status: appState.captureStatus, serverReachable: appState.serverReachable)
+            StatusMenuBarLabel(status: appState.captureStatus, serverReachable: appState.serverReachable, isUserIdle: appState.isUserIdle)
         }
         .menuBarExtraStyle(.window)
     }
@@ -40,41 +40,25 @@ struct FocusLensApp: App {
 struct StatusMenuBarLabel: View {
     let status: AppState.CaptureStatus
     let serverReachable: Bool
+    var isUserIdle = false
 
     var body: some View {
-        let image = Image(systemName: symbolName)
-            .symbolRenderingMode(.hierarchical)
-            .foregroundStyle(color)
-        if #available(macOS 14.0, *) {
-            image.contentTransition(.symbolEffect(.replace))
-        } else {
-            image
-        }
+        Image(systemName: symbolName)
     }
 
+    /// Menu bar icons are template images — macOS ignores color.
+    /// State is communicated purely through symbol shape.
     private var symbolName: String {
+        if isUserIdle { return "pause.circle" }
         switch status {
         case .idle:
-            return serverReachable ? "scope" : "exclamationmark.triangle.fill"
+            return serverReachable ? "scope" : "exclamationmark.triangle"
         case .capturing:
             return "camera.circle.fill"
         case .classifying:
-            return "brain.head.profile"
+            return "brain.head.profile.fill"
         case .warning:
-            return "exclamationmark.triangle.fill"
-        }
-    }
-
-    private var color: Color {
-        switch status {
-        case .idle:
-            return serverReachable ? DS.Accent.primary : DS.Accent.warning
-        case .capturing:
-            return Color.cyan
-        case .classifying:
-            return DS.Accent.processing
-        case .warning:
-            return DS.Accent.warning
+            return "exclamationmark.triangle"
         }
     }
 }

@@ -30,7 +30,7 @@ struct HourScrubber: View {
     private func color(for hour: Int) -> Color {
         let value = min(1, density[hour] ?? 0)
         if selectedHour == hour {
-            return .white
+            return DS.Accent.primary
         }
         if value == 0 {
             return DS.Surface.inset

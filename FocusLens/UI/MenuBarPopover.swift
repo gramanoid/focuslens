@@ -379,6 +379,9 @@ struct MenuBarPopover: View {
         if !appState.hasCapturedSessions {
             return "Everything is connected. Take the first snapshot now or wait for the next scheduled interval."
         }
+        if appState.isUserIdle {
+            return "\(timeOfDayGreeting). Paused — no keyboard or mouse activity detected."
+        }
         if let lastCapturedAt = appState.lastCapturedAt {
             let timeAgo = Self.relativeDateFormatter.localizedString(for: lastCapturedAt, relativeTo: .now)
             return "\(timeOfDayGreeting). Last snapshot \(timeAgo)."

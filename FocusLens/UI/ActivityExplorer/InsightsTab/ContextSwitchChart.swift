@@ -15,7 +15,7 @@ struct ContextSwitchChart: View {
                 )
                 .foregroundStyle(DS.Accent.warning)
             }
-            .frame(height: 260)
+            .frame(height: 180)
         }
         .padding(DS.Spacing.lg)
         .background(DS.Surface.card, in: RoundedRectangle(cornerRadius: DS.Radius.lg))

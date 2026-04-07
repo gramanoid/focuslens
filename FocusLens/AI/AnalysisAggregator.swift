@@ -212,10 +212,17 @@ enum AnalysisAggregator {
     static func focusScore(for blocks: [SessionBlock]) -> Double {
         let total = totalDuration(of: blocks)
         guard total > 0 else { return 0 }
-        let focusDuration = blocks
-            .filter { [.coding, .writing, .design].contains($0.category) }
-            .reduce(0) { $0 + $1.duration }
-        return (focusDuration / total) * 100
+        let weightedDuration = blocks.reduce(0.0) { sum, block in
+            let weight: Double
+            switch block.category {
+            case .coding, .writing, .design: weight = 1.0
+            case .browsing: weight = 0.5
+            case .communication: weight = 0.25
+            case .media, .other, .sleeping, .unknown: weight = 0
+            }
+            return sum + block.duration * weight
+        }
+        return (weightedDuration / total) * 100
     }
 
     static func focusScoreTrend(blocks: [SessionBlock], interval: DateInterval, calendar: Calendar = .current) -> [FocusScorePoint] {

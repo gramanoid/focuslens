@@ -15,7 +15,7 @@ struct AppUsageChart: View {
                 )
                 .foregroundStyle(item.dominantCategory.color)
             }
-            .frame(height: 320)
+            .frame(minHeight: 200)
         }
         .padding(DS.Spacing.lg)
         .background(DS.Surface.card, in: RoundedRectangle(cornerRadius: DS.Radius.lg))

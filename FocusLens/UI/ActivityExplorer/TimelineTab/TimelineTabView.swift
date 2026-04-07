@@ -39,6 +39,7 @@ struct TimelineTabView: View {
                                     )
                             }
                             .buttonStyle(.plain)
+                            .accessibilityAddTraits(viewModel.selectedCategories.contains(category) ? .isSelected : [])
                             .hoverFeedback()
                         }
                     }
@@ -113,9 +114,7 @@ struct TimelineTabView: View {
                               let block = viewModel.timelineBlocks.first(where: {
                                   Calendar.current.component(.hour, from: $0.start) == hour
                               }) else { return }
-                        withAnimation(.easeInOut) {
-                            proxy.scrollTo(block.id, anchor: .top)
-                        }
+                        proxy.scrollTo(block.id, anchor: .top)
                     }
                 }
             } else {

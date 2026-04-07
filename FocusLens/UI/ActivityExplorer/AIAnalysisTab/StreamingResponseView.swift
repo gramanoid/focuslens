@@ -31,12 +31,12 @@ struct StreamingResponseView: View {
                 Image(systemName: "text.magnifyingglass")
                     .font(.title2)
                     .foregroundStyle(.tertiary)
-                Text("Pick an analysis type above and hit Generate to get AI insights on your tracked data.")
+                Text("Analysis will load automatically when a local model is connected. You can also choose a type above and generate manually.")
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
-            .padding(.top, 40)
+            .padding(.top, DS.Spacing.xxl)
         } else if isStreaming {
             // During streaming, render plain text to avoid re-parsing markdown on every token.
             Text(text)

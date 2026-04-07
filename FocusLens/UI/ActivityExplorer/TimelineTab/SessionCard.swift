@@ -62,7 +62,7 @@ struct SessionCard: View {
                                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
                                 .scaleEffect(thumbnailHovered ? 1.05 : 1.0)
                                 .shadow(color: .black.opacity(thumbnailHovered ? 0.3 : 0), radius: 8, y: 4)
-                                .animation(.easeOut(duration: DS.Motion.fast), value: thumbnailHovered)
+                                .motionSafe(.easeOut(duration: DS.Motion.fast), value: thumbnailHovered)
                         }
                         .buttonStyle(.plain)
                         .onHover { thumbnailHovered = $0 }
@@ -75,11 +75,10 @@ struct SessionCard: View {
                         Text(block.task)
                             .font(.body)
                             .lineLimit(expanded ? nil : 1)
+                            .motionSafe(.easeInOut(duration: DS.Motion.fast), value: expanded)
                         Spacer()
                         Button {
-                            withAnimation(.easeInOut(duration: DS.Motion.fast)) {
-                                expanded.toggle()
-                            }
+                            expanded.toggle()
                         } label: {
                             Image(systemName: expanded ? "chevron.up" : "chevron.down")
                         }
