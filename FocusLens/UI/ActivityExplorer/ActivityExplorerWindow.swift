@@ -72,6 +72,7 @@ final class ActivityExplorerViewModel: ObservableObject {
     @Published private(set) var cachedDayOfWeekSummaries: [DayOfWeekSummary] = []
     @Published private(set) var cachedPatternInsights: [PatternInsight] = []
     @Published private(set) var cachedOptimalSessionLength: TimeInterval = 0
+    @Published private(set) var cachedAppFocusCorrelation: [(app: String, focusRatio: Double)] = []
     @Published private(set) var hasEnoughDataForPatterns = false
     var debouncedSearchTask: Task<Void, Never>?
 
@@ -96,7 +97,7 @@ final class ActivityExplorerViewModel: ObservableObject {
             let matchesConfidence = block.confidence >= minimumConfidence
             let matchesFocus = !showOnlyFocusSessions || block.duration >= 180
             return matchesCategory && matchesApp && matchesConfidence && matchesFocus
-        }
+        }.reversed()
     }
 
     var allApps: [String] {
@@ -176,6 +177,7 @@ final class ActivityExplorerViewModel: ObservableObject {
         cachedWeeklyHeatmap = AnalysisAggregator.weeklyHeatmap(blocks: blocks)
         cachedDayOfWeekSummaries = AnalysisAggregator.dayOfWeekSummaries(blocks: blocks)
         cachedOptimalSessionLength = AnalysisAggregator.optimalSessionLength(blocks: blocks)
+        cachedAppFocusCorrelation = AnalysisAggregator.appFocusCorrelation(blocks: blocks)
         cachedPatternInsights = AnalysisAggregator.generatePatternInsights(
             daySummaries: cachedDayOfWeekSummaries,
             weeklyHeatmap: cachedWeeklyHeatmap,
@@ -453,7 +455,9 @@ struct ActivityExplorerView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .motionSafe(.easeInOut(duration: DS.Motion.fast), value: viewModel.selectedTab)
         }
-        .padding(DS.Spacing.xl)
+        .padding(.horizontal, DS.Spacing.xl)
+        .padding(.bottom, DS.Spacing.xl)
+        .padding(.top, DS.Spacing.sm)
         .frame(minWidth: 960, minHeight: 680)
         .background(DS.Background.dashboard)
         .preferredColorScheme(.dark)

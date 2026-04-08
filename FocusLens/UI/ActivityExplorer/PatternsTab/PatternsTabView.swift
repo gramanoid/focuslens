@@ -32,7 +32,7 @@ struct PatternsTabView: View {
                     Image(systemName: insight.icon)
                         .font(.title3)
                         .foregroundStyle(DS.Accent.primary)
-                        .frame(width: 28)
+                        .frame(width: DS.Spacing.xxl)
                     VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                         Text(insight.title)
                             .font(.system(.subheadline, design: .rounded, weight: .bold))
@@ -73,7 +73,7 @@ struct PatternsTabView: View {
                             Text(Calendar.current.shortWeekdaySymbols[weekday - 1])
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                                .frame(width: 30, alignment: .trailing)
+                                .frame(width: DS.Spacing.xxl + DS.Spacing.sm, alignment: .trailing)
                             ForEach(0 ..< 24, id: \.self) { hour in
                                 let cell = viewModel.cachedWeeklyHeatmap.first { $0.dayOfWeek == weekday && $0.hour == hour }
                                 let intensity = (cell?.averageMinutes ?? 0) / maxMinutes
@@ -81,6 +81,7 @@ struct PatternsTabView: View {
                                     .fill(DS.Accent.primary.opacity(0.08 + intensity * 0.82))
                                     .frame(width: DS.Spacing.xl, height: DS.Spacing.xl)
                                     .help("\(Calendar.current.shortWeekdaySymbols[weekday - 1]) \(String(format: "%02d", hour)):00 — \(Int(cell?.averageMinutes ?? 0)) min avg")
+                                    .accessibilityLabel("\(Calendar.current.shortWeekdaySymbols[weekday - 1]) \(String(format: "%02d", hour)):00, \(Int(cell?.averageMinutes ?? 0)) minutes average")
                             }
                         }
                     }
@@ -137,7 +138,7 @@ struct PatternsTabView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                let focusApps = AnalysisAggregator.appFocusCorrelation(blocks: viewModel.cachedRangeBlocks).prefix(5)
+                let focusApps = viewModel.cachedAppFocusCorrelation.prefix(5)
                 if !focusApps.isEmpty {
                     VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                         Text("FOCUS APPS")

@@ -93,8 +93,8 @@ private struct SearchResultsDropdown: View {
                         HStack(spacing: DS.Spacing.sm) {
                             Image(systemName: result.source == .session ? "eye.circle" : "keyboard")
                                 .foregroundStyle(.secondary)
-                                .frame(width: 16)
-                            VStack(alignment: .leading, spacing: 2) {
+                                .frame(width: DS.Spacing.lg)
+                            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                                 Text(result.text)
                                     .lineLimit(1)
                                     .font(.system(.body, design: .monospaced))
@@ -105,7 +105,7 @@ private struct SearchResultsDropdown: View {
                                         Text(cat.title)
                                             .font(.caption2)
                                             .padding(.horizontal, DS.Spacing.xs)
-                                            .padding(.vertical, 2)
+                                            .padding(.vertical, DS.Spacing.xs)
                                             .background(cat.color.opacity(DS.Emphasis.medium), in: Capsule())
                                     }
                                     Spacer()
@@ -121,6 +121,7 @@ private struct SearchResultsDropdown: View {
                     }
                     .buttonStyle(.plain)
                     .hoverFeedback()
+                    .accessibilityLabel("\(result.app) \(result.source == .session ? "session" : "keystroke"): \(String(result.text.prefix(60))), \(result.timestamp.formatted(date: .abbreviated, time: .shortened))")
                 }
             }
         }

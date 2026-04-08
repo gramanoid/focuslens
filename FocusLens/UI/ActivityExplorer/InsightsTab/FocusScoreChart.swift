@@ -9,16 +9,24 @@ struct FocusScoreChart: View {
             Text("Productivity Score")
                 .font(.system(.headline, design: .rounded, weight: .bold))
             Chart(points) { point in
-                LineMark(
+                if points.count > 1 {
+                    LineMark(
+                        x: .value("Date", point.date),
+                        y: .value("Score", point.score)
+                    )
+                    .foregroundStyle(DS.Accent.primary)
+                    AreaMark(
+                        x: .value("Date", point.date),
+                        y: .value("Score", point.score)
+                    )
+                    .foregroundStyle(DS.Accent.primary.opacity(DS.Emphasis.subtle))
+                }
+                PointMark(
                     x: .value("Date", point.date),
                     y: .value("Score", point.score)
                 )
                 .foregroundStyle(DS.Accent.primary)
-                AreaMark(
-                    x: .value("Date", point.date),
-                    y: .value("Score", point.score)
-                )
-                .foregroundStyle(DS.Accent.primary.opacity(DS.Emphasis.subtle))
+                .symbolSize(points.count == 1 ? 80 : 30)
             }
             .chartYScale(domain: 0 ... 100)
             .frame(minHeight: 200)

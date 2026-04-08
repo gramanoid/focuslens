@@ -27,6 +27,7 @@ struct KeystrokesTabView: View {
                 Toggle("Group by app", isOn: $groupByApp)
                     .toggleStyle(.switch)
                     .controlSize(.small)
+                    .accessibilityLabel("Group keystrokes by app")
             }
 
             keystrokeSummary
@@ -36,6 +37,7 @@ struct KeystrokesTabView: View {
                     .foregroundStyle(.tertiary)
                 TextField("Search keystrokes", text: $searchText)
                     .textFieldStyle(.plain)
+                    .accessibilityLabel("Search keystrokes")
                 if !searchText.isEmpty {
                     Button {
                         searchText = ""
@@ -44,6 +46,7 @@ struct KeystrokesTabView: View {
                             .foregroundStyle(.tertiary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Clear keystroke search")
                 }
             }
             .padding(DS.Spacing.md)
@@ -162,7 +165,7 @@ private struct KeystrokeRow: View {
                     Image(nsImage: AppIconResolver.icon(for: record.bundleID))
                         .resizable()
                         .frame(width: 14, height: 14)
-                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm / 4))
                     Text(record.app)
                         .font(.caption.weight(.semibold))
                 }
@@ -180,6 +183,7 @@ private struct KeystrokeRow: View {
                 .textSelection(.enabled)
                 .lineLimit(4)
                 .foregroundStyle(.primary.opacity(0.85))
+                .accessibilityLabel("Typed in \(record.app): \(String(record.typedText.prefix(80)))")
         }
         .padding(.vertical, DS.Spacing.xs)
     }

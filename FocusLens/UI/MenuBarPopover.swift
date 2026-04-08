@@ -70,7 +70,22 @@ struct MenuBarPopover: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                statusChip(appState.isRunning ? "Running" : "Paused", tone: appState.isRunning ? heroAccent : .secondary)
+                VStack(alignment: .trailing, spacing: DS.Spacing.sm) {
+                    Button {
+                        NSApplication.shared.terminate(nil)
+                    } label: {
+                        Image(systemName: "power")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color(red: 0.7, green: 0.2, blue: 0.2))
+                            .frame(width: 24, height: 24)
+                            .background(Color(red: 0.7, green: 0.2, blue: 0.2).opacity(DS.Emphasis.subtle), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .hoverFeedback()
+                    .accessibilityLabel("Quit FocusLens")
+                    .help("Quit FocusLens")
+                    statusChip(appState.isRunning ? "Running" : "Paused", tone: appState.isRunning ? heroAccent : .secondary)
+                }
             }
 
             HStack(spacing: DS.Spacing.sm) {
@@ -300,17 +315,6 @@ struct MenuBarPopover: View {
                 .frame(maxWidth: .infinity)
             }
 
-            Button {
-                NSApplication.shared.terminate(nil)
-            } label: {
-                HStack(spacing: DS.Spacing.sm) {
-                    Image(systemName: "power")
-                    Text("Quit FocusLens")
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .hoverFeedback()
             .keyboardShortcut("q")
         }
     }
