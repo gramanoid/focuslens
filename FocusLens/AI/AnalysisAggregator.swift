@@ -223,7 +223,7 @@ enum AnalysisAggregator {
 
     static func longestFocusBlock(in blocks: [SessionBlock]) -> SessionBlock? {
         mergedBlocks(from: blocks)
-            .filter { [.coding, .writing, .design].contains($0.category) }
+            .filter { [.coding, .writing, .design, .work, .noteTaking].contains($0.category) }
             .max(by: { $0.duration < $1.duration })
     }
 
@@ -239,10 +239,10 @@ enum AnalysisAggregator {
         let weightedDuration = blocks.reduce(0.0) { sum, block in
             let weight: Double
             switch block.category {
-            case .coding, .writing, .design: weight = 1.0
-            case .browsing: weight = 0.5
+            case .coding, .writing, .design, .work, .noteTaking: weight = 1.0
+            case .ai, .browsing, .productivity: weight = 0.5
             case .communication: weight = 0.25
-            case .media, .other, .sleeping, .unknown: weight = 0
+            case .media, .library, .other, .sleeping, .unknown: weight = 0
             }
             return sum + block.duration * weight
         }
@@ -484,7 +484,7 @@ enum AnalysisAggregator {
 
     /// Median duration of productive (coding/writing/design) merged blocks.
     static func optimalSessionLength(blocks: [SessionBlock]) -> TimeInterval {
-        let productive = mergedBlocks(from: blocks).filter { [.coding, .writing, .design].contains($0.category) }
+        let productive = mergedBlocks(from: blocks).filter { [.coding, .writing, .design, .work, .noteTaking].contains($0.category) }
         guard !productive.isEmpty else { return 0 }
         let sorted = productive.map(\.duration).sorted()
         return sorted[sorted.count / 2]
@@ -496,7 +496,7 @@ enum AnalysisAggregator {
         return byApp.compactMap { app, appBlocks in
             let total = totalDuration(of: appBlocks)
             guard total > 60 else { return nil } // ignore trivial usage
-            let focusDuration = appBlocks.filter { [.coding, .writing, .design].contains($0.category) }.reduce(0) { $0 + $1.duration }
+            let focusDuration = appBlocks.filter { [.coding, .writing, .design, .work, .noteTaking].contains($0.category) }.reduce(0) { $0 + $1.duration }
             return (app: app, focusRatio: focusDuration / total)
         }
         .sorted { $0.focusRatio > $1.focusRatio }

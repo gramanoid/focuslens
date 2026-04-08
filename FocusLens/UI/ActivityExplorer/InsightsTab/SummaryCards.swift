@@ -31,6 +31,8 @@ private struct SummaryCard: View {
                 .tracking(-0.3)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
+                .contentTransition(.numericText())
+                .motionSafe(.easeOut(duration: DS.Motion.normal), value: value)
         }
         .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
         .padding(DS.Spacing.md)

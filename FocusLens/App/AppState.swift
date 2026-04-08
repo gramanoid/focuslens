@@ -409,21 +409,25 @@ final class AppState: ObservableObject {
     /// Maps well-known bundle ID prefixes to their definitive category.
     /// Used for blank captures and as a fallback when the model misclassifies.
     private static let knownAppCategories: [(prefix: String, category: ActivityCategory)] = [
-        // Communication — messaging, email, video calls
+        // Communication — messaging, video calls
         ("ru.keepcoder.Telegram", .communication),
         ("net.whatsapp", .communication),
         ("com.facebook.messenger", .communication),
         ("com.tinyspeck.slackmacgap", .communication),
         ("us.zoom", .communication),
-        ("com.microsoft.teams", .communication),
         ("com.apple.MobileSMS", .communication),
         ("com.apple.FaceTime", .communication),
         ("com.skype", .communication),
         ("com.hnc.Discord", .communication),
         ("com.viber", .communication),
-        ("com.microsoft.Outlook", .communication),
         ("com.apple.mail", .communication),
         ("com.apple.mobilephone", .communication),
+
+        // Work — office apps, email, enterprise tools
+        ("com.microsoft.teams", .work),
+        ("com.microsoft.Outlook", .work),
+        ("com.microsoft.Excel", .work),
+        ("com.microsoft.Powerpoint", .work),
 
         // Coding — editors, terminals, dev tools
         ("com.microsoft.VSCode", .coding),
@@ -460,7 +464,7 @@ final class AppState: ObservableObject {
         ("com.adobe.Photoshop", .design),
         ("com.adobe.illustrator", .design),
         ("com.apple.freeform", .design),
-        ("cc.ffitch.shottr", .design),
+        ("cc.ffitch.shottr", .other),
 
         // Media — music, video, podcasts, photos
         ("com.spotify.client", .media),
@@ -476,32 +480,33 @@ final class AppState: ObservableObject {
         ("com.obsproject.obs-studio", .media),
         ("com.apple.Image_Capture", .media),
 
-        // Writing — documents, notes, spreadsheets, knowledge
+        // Writing — documents, text editing
         ("com.microsoft.Word", .writing),
-        ("com.microsoft.Excel", .writing),
-        ("com.microsoft.Powerpoint", .writing),
         ("com.apple.iWork.Pages", .writing),
-        ("com.apple.iWork.Keynote", .writing),
         ("com.apple.iWork.Numbers", .writing),
-        ("md.obsidian", .writing),
-        ("com.apple.Notes", .writing),
-        ("com.notion.Notion", .writing),
+        ("com.apple.iWork.Keynote", .writing),
         ("com.apple.TextEdit", .writing),
-        ("com.apple.reminders", .writing),
-        ("com.apple.iCal", .writing),
-        ("com.google.drivefs", .writing),
         ("org.libreoffice", .writing),
         ("com.apple.Stickies", .writing),
-        ("net.kovidgoyal.calibre", .writing),
-        ("com.calibre-ebook", .writing),
         ("com.benjitaylor.Readout", .writing),
         ("ai.plaud.desktop", .writing),
 
-        // Browsing — AI chat interfaces
-        ("com.anthropic.claudefordesktop", .browsing),
-        ("com.openai.chat", .browsing),
-        ("ai.elementlabs.lmstudio", .browsing),
-        ("im.manus.desktop", .browsing),
+        // Note Taking — knowledge management
+        ("md.obsidian", .noteTaking),
+        ("com.apple.Notes", .noteTaking),
+        ("com.notion.Notion", .noteTaking),
+
+        // Productivity — task management, scheduling, file sync
+        ("com.apple.reminders", .productivity),
+        ("com.apple.iCal", .productivity),
+        ("com.google.drivefs", .productivity),
+
+        // AI — AI assistants and local model tools
+        ("com.anthropic.claudefordesktop", .ai),
+        ("com.openai.chat", .ai),
+        ("ai.elementlabs.lmstudio", .ai),
+        ("im.manus.desktop", .ai),
+        ("computer.pinokio", .ai),
 
         // Other — system utilities (genuinely miscellaneous)
         ("com.apple.systempreferences", .other),
@@ -532,11 +537,14 @@ final class AppState: ObservableObject {
         ("com.apple.weather", .other),
         ("com.apple.stocks", .other),
         ("com.apple.news", .browsing),
-        ("com.apple.iBooksX", .writing),
         ("com.apple.Home", .other),
         ("com.apple.findmy", .other),
-        ("computer.pinokio", .coding),
         ("com.apple.ScreenSharing", .communication),
+
+        // Library — ebook management, reading
+        ("net.kovidgoyal.calibre", .library),
+        ("com.calibre-ebook", .library),
+        ("com.apple.iBooksX", .library),
     ]
 
     private func knownCategory(for bundleID: String?) -> ActivityCategory? {

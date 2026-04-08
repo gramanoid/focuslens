@@ -8,14 +8,22 @@ struct MenuBarPopover: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 heroSection
+                    .staggeredEntrance(index: 0)
                 dashboardButton
+                    .staggeredEntrance(index: 1)
+                    .pulseGlow(heroAccent, isActive: appState.isRunning && appState.serverReachable)
                 if appState.needsOnboarding {
                     setupSection
+                        .staggeredEntrance(index: 2)
                 }
                 todaySummarySection
+                    .staggeredEntrance(index: 3)
                 recentEntriesSection
+                    .staggeredEntrance(index: 4)
                 secondaryActions
+                    .staggeredEntrance(index: 5)
                 privacyFootnote
+                    .staggeredEntrance(index: 6)
             }
             .padding(DS.Spacing.xl)
         }
@@ -286,14 +294,24 @@ struct MenuBarPopover: View {
         Button {
             appState.openDashboard()
         } label: {
-            HStack {
+            HStack(spacing: DS.Spacing.sm) {
                 Image(systemName: "chart.bar.xaxis")
                 Text("Open Dashboard")
+                Spacer()
+                if appState.todaySessionCount > 0 {
+                    Text("\(appState.todaySessionCount)")
+                        .font(.system(size: 11, weight: .bold, design: .rounded).monospacedDigit())
+                        .padding(.horizontal, DS.Spacing.sm)
+                        .padding(.vertical, DS.Spacing.xs)
+                        .background(.white.opacity(DS.Emphasis.medium), in: Capsule())
+                        .contentTransition(.numericText())
+                        .motionSafe(.easeOut(duration: DS.Motion.normal), value: appState.todaySessionCount)
+                }
             }
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
-        .tint(heroAccent)
+        .tint(appState.isRunning ? heroAccent : DS.Accent.caution)
         .hoverFeedback()
     }
 
@@ -347,6 +365,9 @@ struct MenuBarPopover: View {
     private var heroAccent: Color {
         if !appState.screenPermissionGranted {
             return DS.Accent.warning
+        }
+        if !appState.isRunning || appState.isUserIdle {
+            return DS.Accent.caution
         }
         if !appState.serverReachable {
             return DS.Accent.caution
@@ -459,6 +480,8 @@ struct MenuBarPopover: View {
                 .tracking(-0.3)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+                .contentTransition(.numericText())
+                .motionSafe(.easeOut(duration: DS.Motion.normal), value: value)
             Text(detail)
                 .font(.system(size: 11, design: .rounded))
                 .foregroundStyle(.secondary)

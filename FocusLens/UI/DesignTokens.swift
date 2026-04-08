@@ -145,3 +145,76 @@ private struct MotionSafeModifier<V: Equatable>: ViewModifier {
         content.animation(reduceMotion ? nil : animation, value: value)
     }
 }
+
+// MARK: - Staggered Entrance
+
+/// Slides content in from below with a staggered delay.
+struct StaggeredEntrance: ViewModifier {
+    let index: Int
+    let baseDelay: Double
+    @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(reduceMotion || appeared ? 1 : 0)
+            .offset(y: reduceMotion || appeared ? 0 : 12)
+            .onAppear {
+                guard !reduceMotion else { appeared = true; return }
+                withAnimation(.easeOut(duration: DS.Motion.normal).delay(baseDelay + Double(index) * 0.06)) {
+                    appeared = true
+                }
+            }
+    }
+}
+
+/// Subtle scale-in entrance for cards and containers.
+struct ScaleEntrance: ViewModifier {
+    @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(reduceMotion || appeared ? 1 : 0.96)
+            .opacity(reduceMotion || appeared ? 1 : 0)
+            .onAppear {
+                guard !reduceMotion else { appeared = true; return }
+                withAnimation(DS.Motion.defaultSpring) {
+                    appeared = true
+                }
+            }
+    }
+}
+
+/// Pulse glow effect for active/live indicators.
+struct PulseGlow: ViewModifier {
+    let color: Color
+    let isActive: Bool
+    @State private var glowing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content
+            .shadow(color: isActive && !reduceMotion ? color.opacity(glowing ? 0.4 : 0.1) : .clear, radius: glowing ? 8 : 4)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
+                    glowing = true
+                }
+            }
+    }
+}
+
+extension View {
+    func staggeredEntrance(index: Int, baseDelay: Double = 0) -> some View {
+        modifier(StaggeredEntrance(index: index, baseDelay: baseDelay))
+    }
+
+    func scaleEntrance() -> some View {
+        modifier(ScaleEntrance())
+    }
+
+    func pulseGlow(_ color: Color, isActive: Bool) -> some View {
+        modifier(PulseGlow(color: color, isActive: isActive))
+    }
+}

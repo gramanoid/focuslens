@@ -147,6 +147,8 @@ private struct KeystrokeStat: View {
                 .font(.system(size: 18, weight: .bold, design: .rounded))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
+                .contentTransition(.numericText())
+                .motionSafe(.easeOut(duration: DS.Motion.normal), value: value)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(DS.Spacing.md)

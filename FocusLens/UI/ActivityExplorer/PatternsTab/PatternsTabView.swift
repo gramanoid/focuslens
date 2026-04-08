@@ -9,10 +9,14 @@ struct PatternsTabView: View {
             if viewModel.hasEnoughDataForPatterns {
                 VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                     insightCards
+                        .scaleEntrance()
                     weeklyHeatmap
+                        .staggeredEntrance(index: 0, baseDelay: 0.15)
                     HStack(alignment: .top, spacing: DS.Spacing.lg) {
                         dayOfWeekChart
+                            .staggeredEntrance(index: 1, baseDelay: 0.15)
                         optimalSessionCard
+                            .staggeredEntrance(index: 2, baseDelay: 0.15)
                     }
                     .fixedSize(horizontal: false, vertical: true)
                 }
