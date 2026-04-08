@@ -20,6 +20,7 @@
 		2604892E1ECF4C90AE2A97F9 /* AppUsageChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = F440407F76728BA6C3300593 /* AppUsageChart.swift */; };
 		27B3976E6EE94D6747011889 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB4D8D4FC8A66F99FF6F216 /* DesignTokens.swift */; };
 		350AA24A2DFA08DBA8020472 /* FocusLensApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82A7828086E2F67EF79C9BFC /* FocusLensApp.swift */; };
+		36279F4617E9864C73177329 /* AnalysisResponseFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D188D8BC0736B388348300C2 /* AnalysisResponseFormatter.swift */; };
 		3C04CF76AA3D5F70B529176E /* KeystrokeRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = E969511DFD32E489A3CA64AD /* KeystrokeRecord.swift */; };
 		40FACF4D24F214EECC1515F7 /* TimelineTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8DAD7C736D8423B7DA1D04E /* TimelineTabView.swift */; };
 		45D6CB09765EC724C3D09961 /* NaturalDateParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40AB8ED380D295233BEAE327 /* NaturalDateParser.swift */; };
@@ -94,6 +95,7 @@
 		C07D4616D7D9D2F435467EA8 /* KeystrokeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeystrokeMonitor.swift; sourceTree = "<group>"; };
 		C744736D2CBCFA644560F90A /* SurfaceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceCard.swift; sourceTree = "<group>"; };
 		CD62D521A6E64117EA433180 /* SelfCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfCheck.swift; sourceTree = "<group>"; };
+		D188D8BC0736B388348300C2 /* AnalysisResponseFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisResponseFormatter.swift; sourceTree = "<group>"; };
 		D4D2E14DBAF1662B2734FDD8 /* InsightsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsTabView.swift; sourceTree = "<group>"; };
 		DC0D52E0ED437B0E38803872 /* AnalysisRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisRecord.swift; sourceTree = "<group>"; };
 		DEC6ABE1DE2CEDFCE7B809F5 /* FocusScoreChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusScoreChart.swift; sourceTree = "<group>"; };
@@ -252,6 +254,7 @@
 			isa = PBXGroup;
 			children = (
 				B595603A6AB8F51AEA83BC25 /* AnalysisAggregator.swift */,
+				D188D8BC0736B388348300C2 /* AnalysisResponseFormatter.swift */,
 				B1876CE4BD89DE2D5D85CA1C /* ClassificationResult.swift */,
 				6FE52FC608B461BB0B6AE843 /* LlamaCppClient.swift */,
 				241DE53E08AD858F43D63818 /* ModelDefinition.swift */,
@@ -377,6 +380,7 @@
 				E7AF8FC202108542B7989B39 /* ActivityExplorerWindow.swift in Sources */,
 				8D59CE1A86276439C80C2F81 /* AnalysisAggregator.swift in Sources */,
 				6A275AD00AC0A8578717CDA5 /* AnalysisRecord.swift in Sources */,
+				36279F4617E9864C73177329 /* AnalysisResponseFormatter.swift in Sources */,
 				041FC735CC1BDC25D9590CE1 /* AppIconResolver.swift in Sources */,
 				CF5C41A4361703994C7D2498 /* AppState.swift in Sources */,
 				0CD50F33AFE5643E0187D7FD /* AppUpdater.swift in Sources */,
@@ -461,7 +465,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -480,7 +484,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.10.1;
+				MARKETING_VERSION = 1.10.2;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -546,7 +550,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -559,7 +563,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.10.1;
+				MARKETING_VERSION = 1.10.2;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alexgrama.FocusLens;

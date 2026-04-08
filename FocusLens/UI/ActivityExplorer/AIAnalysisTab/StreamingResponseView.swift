@@ -4,6 +4,10 @@ struct StreamingResponseView: View {
     let text: String
     let isStreaming: Bool
 
+    private var analysisSections: [AnalysisDisplaySection] {
+        AnalysisResponseFormatter.sections(from: text)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
@@ -41,13 +45,39 @@ struct StreamingResponseView: View {
             // During streaming, render plain text to avoid re-parsing markdown on every token.
             Text(text)
                 .textSelection(.enabled)
-        } else if let attributed = try? AttributedString(markdown: text) {
-            // Only parse markdown once streaming is complete.
+        } else if !analysisSections.isEmpty {
+            AnalysisSectionListView(sections: analysisSections)
+                .textSelection(.enabled)
+        } else if let attributed = try? AttributedString(markdown: AnalysisResponseFormatter.sanitize(text)) {
             Text(attributed)
                 .textSelection(.enabled)
         } else {
-            Text(text)
+            Text(AnalysisResponseFormatter.sanitize(text))
                 .textSelection(.enabled)
+        }
+    }
+}
+
+private struct AnalysisSectionListView: View {
+    let sections: [AnalysisDisplaySection]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+            ForEach(sections) { section in
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    Text(section.title)
+                        .font(.headline)
+
+                    ForEach(section.items.indices, id: \.self) { index in
+                        HStack(alignment: .top, spacing: DS.Spacing.sm) {
+                            Text("•")
+                                .foregroundStyle(.secondary)
+                            Text(section.items[index])
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
         }
     }
 }

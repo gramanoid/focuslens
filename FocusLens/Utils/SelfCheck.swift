@@ -10,6 +10,7 @@ enum SelfCheck {
         try buildAnalysisSummaryIncludesFocusSignalsAndKeystrokes()
         try buildComparisonSummaryIncludesBaselineDeltas()
         try analysisPromptsAddressYouDirectly()
+        try analysisResponseFormattingRestoresSecondPersonAndSections()
         try parseClassificationHandlesWrappedResponse()
         try parseClassificationFallsBackToUnknownForInvalidJSON()
         try inMemoryDatabaseSavesAndFetchesSessionsAndAnalyses()
@@ -152,6 +153,24 @@ enum SelfCheck {
 
         try expect(prompts.allSatisfy { !$0.contains("the user") }, "Default prompts should not refer to 'the user'")
         try expect(prompts.allSatisfy { $0.contains("you") || $0.contains("your") }, "Default prompts should address the person directly")
+    }
+
+    private static func analysisResponseFormattingRestoresSecondPersonAndSections() throws {
+        let malformed = """
+        What You DidI worked on coding and writing. Patterns That MatterMy focus score dropped by 18 points. Recommended AdjustmentI could protect the afternoon for deeper work.
+        """
+
+        let sanitized = AnalysisResponseFormatter.sanitize(malformed)
+        let sections = AnalysisResponseFormatter.sections(from: malformed)
+        let sanitizedSections = AnalysisResponseFormatter.sections(from: sanitized)
+
+        try expect(sanitized.contains("## What You Did"), "Sanitizer should restore the What You Did heading")
+        try expect(sanitized.contains("## Patterns That Matter"), "Sanitizer should restore the Patterns That Matter heading")
+        try expect(sanitized.contains("## Recommended Adjustment"), "Sanitizer should restore the Recommended Adjustment heading")
+        try expect(!sanitized.contains("I worked"), "Sanitizer should rewrite first-person phrasing")
+        try expect(sanitized.contains("You worked"), "Sanitizer should rewrite output into second person")
+        try expect(sections.count >= 3, "Section parser should recover the three required sections")
+        try expect(sanitizedSections.count >= 3, "Section parser should parse sanitized output correctly")
     }
 
     private static func parseClassificationHandlesWrappedResponse() throws {
