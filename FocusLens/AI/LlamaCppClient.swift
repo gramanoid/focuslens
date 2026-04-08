@@ -203,16 +203,15 @@ extension LlamaCppClient {
         }
     }
 
-    /// When the model returns unparseable text, salvage what we can instead of showing "Unknown 0%".
+    /// When the model returns unparseable text, preserve the raw response but mark the classification as unknown.
     private static func fallbackResult(from content: String, fallbackApp: String?) -> ClassificationResult {
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Use the raw response as the task description (truncated), with the OS-reported app name
         let task = trimmed.isEmpty ? "Model returned empty response" : String(trimmed.prefix(120))
         return ClassificationResult(
             app: fallbackApp ?? "Unknown",
-            category: .other,
+            category: .unknown,
             task: task,
-            confidence: 0.3,
+            confidence: 0,
             rawResponse: content
         )
     }

@@ -3,9 +3,13 @@ import Foundation
 enum SelfCheck {
     static func run() throws {
         try customDateRangeIncludesEntireEndDay()
+        try comparisonBaselineMatchesEquivalentWindow()
         try enumerateDaysDoesNotIncludeExclusiveEndDay()
         try averageTrackedMinutesByHourAveragesAcrossDays()
         try buildAnalysisSummaryUsesAveragedHourlyPattern()
+        try buildAnalysisSummaryIncludesFocusSignalsAndKeystrokes()
+        try buildComparisonSummaryIncludesBaselineDeltas()
+        try analysisPromptsAddressYouDirectly()
         try parseClassificationHandlesWrappedResponse()
         try parseClassificationFallsBackToUnknownForInvalidJSON()
         try inMemoryDatabaseSavesAndFetchesSessionsAndAnalyses()
@@ -20,6 +24,23 @@ enum SelfCheck {
         let interval = selection.resolve(calendar: calendar)
         try expect(interval.start == date(2026, 4, 1, 0, 0), "Custom range start mismatch")
         try expect(interval.end == date(2026, 4, 2, 0, 0), "Custom range end should include the full end day")
+    }
+
+    private static func comparisonBaselineMatchesEquivalentWindow() throws {
+        var today = DateRangeSelection()
+        today.preset = .today
+
+        let todayCurrent = DateInterval(start: date(2026, 4, 8, 0, 0), end: date(2026, 4, 8, 15, 30))
+        let todayBaseline = today.comparisonBaseline(for: todayCurrent, calendar: calendar)
+        try expect(todayBaseline.start == date(2026, 4, 7, 0, 0), "Today baseline should shift start by one day")
+        try expect(todayBaseline.end == date(2026, 4, 7, 15, 30), "Today baseline should preserve elapsed time of day")
+
+        var custom = DateRangeSelection()
+        custom.preset = .custom
+        let customCurrent = DateInterval(start: date(2026, 4, 8, 9, 0), end: date(2026, 4, 10, 9, 0))
+        let customBaseline = custom.comparisonBaseline(for: customCurrent, calendar: calendar)
+        try expect(customBaseline.start == date(2026, 4, 6, 9, 0), "Custom baseline should use the immediately preceding equal-length interval")
+        try expect(customBaseline.end == date(2026, 4, 8, 9, 0), "Custom baseline should end at the current interval start")
     }
 
     private static func enumerateDaysDoesNotIncludeExclusiveEndDay() throws {
@@ -59,6 +80,78 @@ enum SelfCheck {
 
         try expect(summary.contains("09:00 — 2m"), "Summary should report averaged 09:00 activity")
         try expect(summary.contains("10:00 — 1m"), "Summary should report averaged 10:00 activity")
+    }
+
+    private static func buildAnalysisSummaryIncludesFocusSignalsAndKeystrokes() throws {
+        let sessions = [
+            SessionRecord(timestamp: date(2026, 4, 1, 9, 0), app: "Xcode", category: .coding, task: "Implement activity analysis", confidence: 0.95),
+            SessionRecord(timestamp: date(2026, 4, 1, 9, 30), app: "Mail", category: .communication, task: "Reply to project updates", confidence: 0.7),
+            SessionRecord(timestamp: date(2026, 4, 1, 10, 0), app: "Xcode", category: .coding, task: "Implement activity analysis", confidence: 0.95)
+        ]
+        let keystrokes = [
+            KeystrokeRecord(
+                sessionID: 1,
+                timestamp: date(2026, 4, 1, 9, 5),
+                app: "Xcode",
+                typedText: "Refine the analysis summary output",
+                keystrokeCount: 120
+            )
+        ]
+        let interval = DateInterval(start: date(2026, 4, 1, 0, 0), end: date(2026, 4, 2, 0, 0))
+        let summary = AnalysisAggregator.buildAnalysisSummary(
+            sessions: sessions,
+            interval: interval,
+            calendar: calendar,
+            keystrokeRecords: keystrokes
+        )
+
+        try expect(summary.contains("Focus profile:"), "Summary should include focus-profile metrics")
+        try expect(summary.contains("Notable session blocks:"), "Summary should include concrete block highlights")
+        try expect(summary.contains("Recurring task themes:"), "Summary should include recurring task themes")
+        try expect(summary.contains("Keystroke activity:"), "Summary should include keystroke activity when present")
+        try expect(summary.contains("Top typing apps: Xcode (120 keys)"), "Summary should list top typing apps")
+    }
+
+    private static func buildComparisonSummaryIncludesBaselineDeltas() throws {
+        let currentSessions = [
+            SessionRecord(timestamp: date(2026, 4, 8, 9, 0), app: "Xcode", category: .coding, task: "Implement comparison summary", confidence: 0.95),
+            SessionRecord(timestamp: date(2026, 4, 8, 10, 0), app: "Xcode", category: .coding, task: "Implement comparison summary", confidence: 0.95),
+            SessionRecord(timestamp: date(2026, 4, 8, 11, 0), app: "Mail", category: .communication, task: "Reply to reviews", confidence: 0.7)
+        ]
+        let previousSessions = [
+            SessionRecord(timestamp: date(2026, 4, 7, 9, 0), app: "Mail", category: .communication, task: "Reply to reviews", confidence: 0.7),
+            SessionRecord(timestamp: date(2026, 4, 7, 10, 0), app: "Safari", category: .browsing, task: "Research", confidence: 0.7)
+        ]
+        let currentKeystrokes = [
+            KeystrokeRecord(sessionID: 1, timestamp: date(2026, 4, 8, 9, 5), app: "Xcode", typedText: "Implement comparison summary", keystrokeCount: 180)
+        ]
+        let previousKeystrokes = [
+            KeystrokeRecord(sessionID: 1, timestamp: date(2026, 4, 7, 9, 5), app: "Mail", typedText: "Reply to reviews", keystrokeCount: 60)
+        ]
+
+        let summary = AnalysisAggregator.buildComparisonSummary(
+            currentSessions: currentSessions,
+            currentInterval: DateInterval(start: date(2026, 4, 8, 0, 0), end: date(2026, 4, 9, 0, 0)),
+            previousSessions: previousSessions,
+            previousInterval: DateInterval(start: date(2026, 4, 7, 0, 0), end: date(2026, 4, 8, 0, 0)),
+            calendar: calendar,
+            currentKeystrokeRecords: currentKeystrokes,
+            previousKeystrokeRecords: previousKeystrokes
+        )
+
+        try expect(summary.contains("Tracked time delta:"), "Comparison summary should include tracked time delta")
+        try expect(summary.contains("Biggest category shifts:"), "Comparison summary should include category shifts")
+        try expect(summary.contains("Biggest app shifts:"), "Comparison summary should include app shifts")
+        try expect(summary.contains("Typing shifts:"), "Comparison summary should include typing shifts")
+    }
+
+    private static func analysisPromptsAddressYouDirectly() throws {
+        let prompts = AnalysisType.allCases
+            .filter { $0 != .customPrompt }
+            .map { $0.defaultPrompt.lowercased() }
+
+        try expect(prompts.allSatisfy { !$0.contains("the user") }, "Default prompts should not refer to 'the user'")
+        try expect(prompts.allSatisfy { $0.contains("you") || $0.contains("your") }, "Default prompts should address the person directly")
     }
 
     private static func parseClassificationHandlesWrappedResponse() throws {

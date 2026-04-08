@@ -3,6 +3,7 @@ import Foundation
 /// Extracts date ranges from natural language queries.
 /// Returns the cleaned query text and an optional DateInterval.
 enum NaturalDateParser {
+    private typealias IntervalResolver = @Sendable (Date, Calendar) -> DateInterval
 
     static func parse(_ input: String, now: Date = .now, calendar: Calendar = .current) -> (query: String, dateRange: DateInterval?) {
         let lowered = input.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
@@ -24,7 +25,7 @@ enum NaturalDateParser {
 
     // MARK: - Private
 
-    private static let keywordPatterns: [(String, (Date, Calendar) -> DateInterval)] = [
+    private static let keywordPatterns: [(String, IntervalResolver)] = [
         ("today", { now, cal in
             let start = cal.startOfDay(for: now)
             let end = cal.date(byAdding: .day, value: 1, to: start)!

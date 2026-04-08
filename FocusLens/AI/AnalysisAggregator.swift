@@ -53,6 +53,35 @@ struct DateRangeSelection: Hashable {
             return DateInterval(start: startDay, end: end)
         }
     }
+
+    func comparisonBaseline(for currentInterval: DateInterval, calendar: Calendar = .current) -> DateInterval {
+        switch preset {
+        case .today, .yesterday:
+            return shifted(currentInterval, by: .day, value: -1, calendar: calendar)
+        case .thisWeek:
+            return shifted(currentInterval, by: .weekOfYear, value: -1, calendar: calendar)
+        case .last7Days:
+            return shifted(currentInterval, by: .day, value: -7, calendar: calendar)
+        case .thisMonth:
+            return shifted(currentInterval, by: .month, value: -1, calendar: calendar)
+        case .custom:
+            return DateInterval(
+                start: currentInterval.start.addingTimeInterval(-currentInterval.duration),
+                end: currentInterval.start
+            )
+        }
+    }
+
+    private func shifted(
+        _ interval: DateInterval,
+        by component: Calendar.Component,
+        value: Int,
+        calendar: Calendar
+    ) -> DateInterval {
+        let start = calendar.date(byAdding: component, value: value, to: interval.start) ?? interval.start
+        let end = calendar.date(byAdding: component, value: value, to: interval.end) ?? interval.end
+        return DateInterval(start: start, end: end)
+    }
 }
 
 struct SessionBlock: Identifiable, Hashable {
@@ -133,6 +162,25 @@ struct PatternInsight: Identifiable {
 }
 
 enum AnalysisAggregator {
+    private static let productiveCategories: Set<ActivityCategory> = [.coding, .writing, .design, .work, .noteTaking]
+    private static let reactiveCategories: Set<ActivityCategory> = [.communication, .browsing, .productivity, .ai]
+    private struct ComparisonSnapshot {
+        let sessionCount: Int
+        let dayCount: Int
+        let totalTracked: TimeInterval
+        let focusScore: Double
+        let deepWorkDuration: TimeInterval
+        let reactiveDuration: TimeInterval
+        let contextSwitches: Int
+        let averageConfidence: Double
+        let categoryDurations: [String: TimeInterval]
+        let appDurations: [String: TimeInterval]
+        let peakTrackedHour: (hour: Int, minutes: Double)?
+        let peakDeepWorkHour: (hour: Int, minutes: Double)?
+        let totalKeystrokes: Int
+        let typingByApp: [String: Int]
+    }
+
     static func blocks(from sessions: [SessionRecord], fallbackInterval: TimeInterval = 60) -> [SessionBlock] {
         guard !sessions.isEmpty else { return [] }
         let sorted = sessions.sorted { $0.timestamp < $1.timestamp }
@@ -223,7 +271,7 @@ enum AnalysisAggregator {
 
     static func longestFocusBlock(in blocks: [SessionBlock]) -> SessionBlock? {
         mergedBlocks(from: blocks)
-            .filter { [.coding, .writing, .design, .work, .noteTaking].contains($0.category) }
+            .filter { productiveCategories.contains($0.category) }
             .max(by: { $0.duration < $1.duration })
     }
 
@@ -310,29 +358,89 @@ enum AnalysisAggregator {
         sessions: [SessionRecord],
         interval: DateInterval,
         calendar: Calendar = .current,
+        fallbackInterval: TimeInterval = 60,
         keystrokeRecords: [KeystrokeRecord] = []
     ) -> String {
-        let blocks = blocks(from: sessions)
+        let blocks = blocks(from: sessions, fallbackInterval: fallbackInterval)
+        let merged = mergedBlocks(from: blocks)
         let summaries = categorySummaries(for: blocks)
         let apps = appUsage(for: blocks)
         let hourly = averageTrackedMinutesByHour(blocks: blocks, interval: interval, calendar: calendar)
         let switches = averageSwitchesByHour(blocks: blocks, interval: interval, calendar: calendar)
         let longest = longestFocusBlock(in: blocks)
         let mostFragmented = switches.max(by: { $0.averageSwitches < $1.averageSwitches })
+        let totalTracked = totalDuration(of: blocks)
+        let focusScoreValue = focusScore(for: blocks)
+        let deepWorkDuration = duration(of: blocks, in: productiveCategories)
+        let reactiveDuration = duration(of: blocks, in: reactiveCategories)
+        let passiveDuration = max(0, totalTracked - deepWorkDuration - reactiveDuration)
+        let averageConfidence = blocks.isEmpty ? 0 : blocks.reduce(0.0) { $0 + $1.confidence } / Double(blocks.count)
+        let dayCount = enumerateDays(in: interval, calendar: calendar).count
+        let peakTrackedHour = hourly.max(by: { $0.value < $1.value })
+        let deepWorkHourly = averageTrackedMinutesByHour(
+            blocks: blocks.filter { productiveCategories.contains($0.category) },
+            interval: interval,
+            calendar: calendar
+        )
+        let peakDeepWorkHour = deepWorkHourly.max(by: { $0.value < $1.value })
+        let focusApps = focusHeavyApps(for: blocks, limit: 3)
+        let notableBlocks = merged
+            .sorted {
+                if $0.duration == $1.duration {
+                    return $0.start < $1.start
+                }
+                return $0.duration > $1.duration
+            }
+            .prefix(5)
+        let taskThemes = topTaskThemes(in: merged, limit: 5)
+        let transitions = topCategoryTransitions(in: merged, limit: 3)
+        let switchHotspots = switches
+            .filter { $0.averageSwitches > 0 }
+            .sorted { $0.averageSwitches > $1.averageSwitches }
+            .prefix(3)
 
         var lines: [String] = []
         lines.append("Date range: \(format(date: interval.start)) to \(format(date: interval.end))")
+        lines.append("Days covered: \(dayCount)")
         lines.append("Total sessions: \(sessions.count)")
-        lines.append("Total tracked time: \(format(duration: totalDuration(of: blocks)))")
+        lines.append("Total tracked time: \(format(duration: totalTracked))")
+        lines.append("Average classifier confidence: \(Int((averageConfidence * 100).rounded()))%")
+        lines.append("")
+        lines.append("Focus profile:")
+        lines.append("- Focus score: \(Int(focusScoreValue.rounded()))/100")
+        lines.append("- Deep work (coding, writing, design, note-taking): \(format(duration: deepWorkDuration)) (\(percentageString(deepWorkDuration, total: totalTracked)))")
+        lines.append("- Reactive work (communication, browsing, productivity, AI): \(format(duration: reactiveDuration)) (\(percentageString(reactiveDuration, total: totalTracked)))")
+        lines.append("- Passive or low-signal time: \(format(duration: passiveDuration)) (\(percentageString(passiveDuration, total: totalTracked)))")
         lines.append("")
         lines.append("Category breakdown:")
         summaries.forEach { summary in
-            lines.append("- \(summary.category.rawValue): \(format(duration: summary.duration)) (\(Int(summary.percentage * 100))%)")
+            lines.append("- \(summary.category.title): \(format(duration: summary.duration)) (\(Int(summary.percentage * 100))%)")
         }
         lines.append("")
         lines.append("Top apps by time:")
-        for (index, app) in apps.enumerated() {
-            lines.append("\(index + 1). \(app.app) — \(format(duration: app.duration))")
+        for (index, app) in apps.prefix(5).enumerated() {
+            lines.append("\(index + 1). \(app.app) - \(format(duration: app.duration)) in \(app.dominantCategory.title)")
+        }
+        if !focusApps.isEmpty {
+            lines.append("")
+            lines.append("Focus-heavy apps:")
+            for app in focusApps {
+                lines.append("- \(app.app): \(Int((app.focusRatio * 100).rounded()))% deep work across \(format(duration: app.duration))")
+            }
+        }
+        if !notableBlocks.isEmpty {
+            lines.append("")
+            lines.append("Notable session blocks:")
+            for block in notableBlocks {
+                lines.append("- \(format(time: block.start)) to \(format(time: block.end)) | \(block.app) | \(block.category.title) | \(compactTask(block.task))")
+            }
+        }
+        if !taskThemes.isEmpty {
+            lines.append("")
+            lines.append("Recurring task themes:")
+            for theme in taskThemes {
+                lines.append("- \(theme.task) - \(theme.occurrences)x for \(format(duration: theme.duration))")
+            }
         }
         lines.append("")
         lines.append("Hourly pattern (avg minutes tracked per hour):")
@@ -342,11 +450,23 @@ enum AnalysisAggregator {
         lines.append(hourlyText)
         lines.append("")
         lines.append("Context switches per hour (avg): \(String(format: "%.2f", switches.reduce(0) { $0 + $1.averageSwitches } / Double(max(switches.count, 1))))")
+        if let peakTrackedHour {
+            lines.append("Peak tracked hour: \(hourLabel(peakTrackedHour.key)) with \(Int(peakTrackedHour.value.rounded()))m average tracked")
+        }
+        if let peakDeepWorkHour, peakDeepWorkHour.value > 0 {
+            lines.append("Peak deep-work hour: \(hourLabel(peakDeepWorkHour.key)) with \(Int(peakDeepWorkHour.value.rounded()))m average deep work")
+        }
         if let longest {
-            lines.append("Longest focus block: \(format(duration: longest.duration)) in \(longest.category.rawValue) at \(format(date: longest.start))")
+            lines.append("Longest focus block: \(format(duration: longest.duration)) in \(longest.category.title) at \(format(date: longest.start))")
         }
         if let mostFragmented {
-            lines.append("Most fragmented hour: \(String(format: "%02d", mostFragmented.hour)):00 with \(String(format: "%.2f", mostFragmented.averageSwitches)) switches")
+            lines.append("Most fragmented hour: \(hourLabel(mostFragmented.hour)) with \(String(format: "%.2f", mostFragmented.averageSwitches)) switches")
+        }
+        if !switchHotspots.isEmpty {
+            lines.append("Switch-heavy hours: \(switchHotspots.map { "\(hourLabel($0.hour)) (\(String(format: "%.2f", $0.averageSwitches)))" }.joined(separator: ", "))")
+        }
+        if !transitions.isEmpty {
+            lines.append("Common category handoffs: \(transitions.map { "\($0.from.title) -> \($0.to.title) (\($0.count))" }.joined(separator: ", "))")
         }
 
         // Keystroke data
@@ -373,6 +493,89 @@ enum AnalysisAggregator {
                     lines.append("- [\(app)] sample: \"\(combinedText)\"")
                 }
             }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    static func buildComparisonSummary(
+        currentSessions: [SessionRecord],
+        currentInterval: DateInterval,
+        previousSessions: [SessionRecord],
+        previousInterval: DateInterval,
+        calendar: Calendar = .current,
+        fallbackInterval: TimeInterval = 60,
+        currentKeystrokeRecords: [KeystrokeRecord] = [],
+        previousKeystrokeRecords: [KeystrokeRecord] = []
+    ) -> String {
+        let current = comparisonSnapshot(
+            sessions: currentSessions,
+            interval: currentInterval,
+            calendar: calendar,
+            fallbackInterval: fallbackInterval,
+            keystrokeRecords: currentKeystrokeRecords
+        )
+        let previous = comparisonSnapshot(
+            sessions: previousSessions,
+            interval: previousInterval,
+            calendar: calendar,
+            fallbackInterval: fallbackInterval,
+            keystrokeRecords: previousKeystrokeRecords
+        )
+
+        var lines: [String] = []
+        lines.append("Previous equivalent period: \(format(date: previousInterval.start)) to \(format(date: previousInterval.end))")
+
+        guard previous.sessionCount > 0 || previous.totalTracked > 0 || previous.totalKeystrokes > 0 else {
+            lines.append("No tracked baseline exists for the previous equivalent period.")
+            return lines.joined(separator: "\n")
+        }
+
+        lines.append("Baseline coverage: \(format(duration: previous.totalTracked)) across \(previous.sessionCount) sessions over \(previous.dayCount) day(s)")
+        lines.append("Tracked time delta: \(format(deltaDuration: current.totalTracked - previous.totalTracked))\(percentDeltaSuffix(current: current.totalTracked, previous: previous.totalTracked))")
+        lines.append("Focus score delta: \(format(deltaPoints: current.focusScore - previous.focusScore))")
+        lines.append("Deep work delta: \(format(deltaDuration: current.deepWorkDuration - previous.deepWorkDuration))\(percentDeltaSuffix(current: current.deepWorkDuration, previous: previous.deepWorkDuration))")
+        lines.append("Reactive work delta: \(format(deltaDuration: current.reactiveDuration - previous.reactiveDuration))\(percentDeltaSuffix(current: current.reactiveDuration, previous: previous.reactiveDuration))")
+        lines.append("Context switch delta: \(format(deltaCount: current.contextSwitches - previous.contextSwitches))")
+        lines.append("Confidence delta: \(format(deltaPoints: (current.averageConfidence - previous.averageConfidence) * 100))")
+
+        if current.totalKeystrokes > 0 || previous.totalKeystrokes > 0 {
+            lines.append("Keystroke delta: \(format(deltaCount: current.totalKeystrokes - previous.totalKeystrokes))\(percentDeltaSuffix(current: Double(current.totalKeystrokes), previous: Double(previous.totalKeystrokes)))")
+        }
+
+        let categoryShifts = topDurationDeltas(
+            current: current.categoryDurations,
+            previous: previous.categoryDurations,
+            limit: 4
+        )
+        if !categoryShifts.isEmpty {
+            lines.append("Biggest category shifts: \(categoryShifts.joined(separator: ", "))")
+        }
+
+        let appShifts = topDurationDeltas(
+            current: current.appDurations,
+            previous: previous.appDurations,
+            limit: 4
+        )
+        if !appShifts.isEmpty {
+            lines.append("Biggest app shifts: \(appShifts.joined(separator: ", "))")
+        }
+
+        let typingShifts = topCountDeltas(
+            current: current.typingByApp,
+            previous: previous.typingByApp,
+            limit: 3
+        )
+        if !typingShifts.isEmpty {
+            lines.append("Typing shifts: \(typingShifts.joined(separator: ", "))")
+        }
+
+        if let currentPeak = current.peakTrackedHour, let previousPeak = previous.peakTrackedHour, currentPeak.hour != previousPeak.hour {
+            lines.append("Peak tracked hour shift: \(hourLabel(previousPeak.hour)) -> \(hourLabel(currentPeak.hour))")
+        }
+
+        if let currentDeepPeak = current.peakDeepWorkHour, let previousDeepPeak = previous.peakDeepWorkHour, currentDeepPeak.hour != previousDeepPeak.hour {
+            lines.append("Peak deep-work hour shift: \(hourLabel(previousDeepPeak.hour)) -> \(hourLabel(currentDeepPeak.hour))")
         }
 
         return lines.joined(separator: "\n")
@@ -482,21 +685,21 @@ enum AnalysisAggregator {
         }
     }
 
-    /// Median duration of productive (coding/writing/design) merged blocks.
+    /// Median duration of productive merged blocks.
     static func optimalSessionLength(blocks: [SessionBlock]) -> TimeInterval {
-        let productive = mergedBlocks(from: blocks).filter { [.coding, .writing, .design, .work, .noteTaking].contains($0.category) }
+        let productive = mergedBlocks(from: blocks).filter { productiveCategories.contains($0.category) }
         guard !productive.isEmpty else { return 0 }
         let sorted = productive.map(\.duration).sorted()
         return sorted[sorted.count / 2]
     }
 
-    /// Apps ranked by their ratio of focus time (coding/writing/design) to total time.
+    /// Apps ranked by their ratio of focus time to total time.
     static func appFocusCorrelation(blocks: [SessionBlock]) -> [(app: String, focusRatio: Double)] {
         let byApp = Dictionary(grouping: blocks, by: \.app)
         return byApp.compactMap { app, appBlocks in
             let total = totalDuration(of: appBlocks)
             guard total > 60 else { return nil } // ignore trivial usage
-            let focusDuration = appBlocks.filter { [.coding, .writing, .design, .work, .noteTaking].contains($0.category) }.reduce(0) { $0 + $1.duration }
+            let focusDuration = appBlocks.filter { productiveCategories.contains($0.category) }.reduce(0) { $0 + $1.duration }
             return (app: app, focusRatio: focusDuration / total)
         }
         .sorted { $0.focusRatio > $1.focusRatio }
@@ -565,5 +768,212 @@ enum AnalysisAggregator {
         }
 
         return insights
+    }
+
+    private static func duration(of blocks: [SessionBlock], in categories: Set<ActivityCategory>) -> TimeInterval {
+        blocks
+            .filter { categories.contains($0.category) }
+            .reduce(0) { $0 + $1.duration }
+    }
+
+    private static func comparisonSnapshot(
+        sessions: [SessionRecord],
+        interval: DateInterval,
+        calendar: Calendar,
+        fallbackInterval: TimeInterval,
+        keystrokeRecords: [KeystrokeRecord]
+    ) -> ComparisonSnapshot {
+        let blocks = blocks(from: sessions, fallbackInterval: fallbackInterval)
+        let groupedApps = Dictionary(grouping: blocks, by: \.app)
+        let hourly = averageTrackedMinutesByHour(blocks: blocks, interval: interval, calendar: calendar)
+        let deepWorkHourly = averageTrackedMinutesByHour(
+            blocks: blocks.filter { productiveCategories.contains($0.category) },
+            interval: interval,
+            calendar: calendar
+        )
+        let typingByApp = Dictionary(
+            grouping: keystrokeRecords,
+            by: \.app
+        ).mapValues { records in
+            records.reduce(0) { $0 + $1.keystrokeCount }
+        }
+
+        return ComparisonSnapshot(
+            sessionCount: sessions.count,
+            dayCount: enumerateDays(in: interval, calendar: calendar).count,
+            totalTracked: totalDuration(of: blocks),
+            focusScore: focusScore(for: blocks),
+            deepWorkDuration: duration(of: blocks, in: productiveCategories),
+            reactiveDuration: duration(of: blocks, in: reactiveCategories),
+            contextSwitches: contextSwitchCount(in: blocks),
+            averageConfidence: blocks.isEmpty ? 0 : blocks.reduce(0.0) { $0 + $1.confidence } / Double(blocks.count),
+            categoryDurations: Dictionary(uniqueKeysWithValues: categorySummaries(for: blocks).map { ($0.category.title, $0.duration) }),
+            appDurations: groupedApps.mapValues { totalDuration(of: $0) },
+            peakTrackedHour: hourly.max(by: { $0.value < $1.value }).flatMap { $0.value > 0 ? ($0.key, $0.value) : nil },
+            peakDeepWorkHour: deepWorkHourly.max(by: { $0.value < $1.value }).flatMap { $0.value > 0 ? ($0.key, $0.value) : nil },
+            totalKeystrokes: keystrokeRecords.reduce(0) { $0 + $1.keystrokeCount },
+            typingByApp: typingByApp
+        )
+    }
+
+    private static func percentageString(_ duration: TimeInterval, total: TimeInterval) -> String {
+        guard total > 0 else { return "0%" }
+        return "\(Int(((duration / total) * 100).rounded()))%"
+    }
+
+    private static func percentDeltaSuffix(current: Double, previous: Double) -> String {
+        guard previous > 0 else { return "" }
+        let delta = ((current - previous) / previous) * 100
+        return " (\(format(signedNumber: delta))%)"
+    }
+
+    private static func focusHeavyApps(for blocks: [SessionBlock], limit: Int) -> [(app: String, focusRatio: Double, duration: TimeInterval)] {
+        let byApp = Dictionary(grouping: blocks, by: \.app)
+        return byApp.compactMap { app, appBlocks in
+            let total = totalDuration(of: appBlocks)
+            guard total >= 180 else { return nil }
+            let focusDuration = duration(of: appBlocks, in: productiveCategories)
+            guard focusDuration > 0 else { return nil }
+            return (app: app, focusRatio: focusDuration / total, duration: total)
+        }
+        .sorted {
+            if $0.focusRatio == $1.focusRatio {
+                return $0.duration > $1.duration
+            }
+            return $0.focusRatio > $1.focusRatio
+        }
+        .prefix(limit)
+        .map { $0 }
+    }
+
+    private static func topTaskThemes(in blocks: [SessionBlock], limit: Int) -> [(task: String, occurrences: Int, duration: TimeInterval)] {
+        var buckets: [String: (task: String, occurrences: Int, duration: TimeInterval)] = [:]
+
+        for block in blocks {
+            let task = compactTask(block.task)
+            guard !task.isEmpty else { continue }
+
+            let key = task.lowercased()
+            var bucket = buckets[key] ?? (task: task, occurrences: 0, duration: 0)
+            bucket.occurrences += 1
+            bucket.duration += block.duration
+            if task.count > bucket.task.count {
+                bucket.task = task
+            }
+            buckets[key] = bucket
+        }
+
+        return buckets.values
+            .sorted {
+                if $0.duration == $1.duration {
+                    return $0.occurrences > $1.occurrences
+                }
+                return $0.duration > $1.duration
+            }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    private static func topCategoryTransitions(in blocks: [SessionBlock], limit: Int) -> [(from: ActivityCategory, to: ActivityCategory, count: Int)] {
+        var counts: [String: (from: ActivityCategory, to: ActivityCategory, count: Int)] = [:]
+
+        for (lhs, rhs) in zip(blocks, blocks.dropFirst()) {
+            guard lhs.category != rhs.category else { continue }
+
+            let key = "\(lhs.category.rawValue)->\(rhs.category.rawValue)"
+            var bucket = counts[key] ?? (from: lhs.category, to: rhs.category, count: 0)
+            bucket.count += 1
+            counts[key] = bucket
+        }
+
+        return counts.values
+            .sorted { $0.count > $1.count }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    private static func compactTask(_ task: String, maxLength: Int = 96) -> String {
+        let collapsed = task
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !collapsed.isEmpty else { return "" }
+        guard collapsed.count > maxLength else { return collapsed }
+        let index = collapsed.index(collapsed.startIndex, offsetBy: maxLength - 3)
+        return String(collapsed[..<index]) + "..."
+    }
+
+    private static func hourLabel(_ hour: Int) -> String {
+        String(format: "%02d:00", hour)
+    }
+
+    private static func format(time: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter.string(from: time)
+    }
+
+    private static func format(deltaDuration: TimeInterval) -> String {
+        let sign = deltaDuration >= 0 ? "+" : "-"
+        return "\(sign)\(format(duration: abs(deltaDuration)))"
+    }
+
+    private static func format(deltaCount: Int) -> String {
+        let sign = deltaCount >= 0 ? "+" : ""
+        return "\(sign)\(deltaCount)"
+    }
+
+    private static func format(deltaPoints: Double) -> String {
+        let rounded = Int(deltaPoints.rounded())
+        let sign = rounded >= 0 ? "+" : ""
+        return "\(sign)\(rounded) pts"
+    }
+
+    private static func format(signedNumber: Double) -> String {
+        let rounded = Int(deltaRounded(delta: signedNumber))
+        let sign = rounded >= 0 ? "+" : ""
+        return "\(sign)\(rounded)"
+    }
+
+    private static func topDurationDeltas<Key: Hashable>(
+        current: [Key: TimeInterval],
+        previous: [Key: TimeInterval],
+        limit: Int
+    ) -> [String] where Key: CustomStringConvertible {
+        let keys = Set(current.keys).union(previous.keys)
+        return keys.compactMap { key -> (String, TimeInterval)? in
+            let delta = (current[key] ?? 0) - (previous[key] ?? 0)
+            guard abs(delta) >= 60 else { return nil }
+            return ("\(key.description) \(format(deltaDuration: delta))", abs(delta))
+        }
+        .sorted { $0.1 > $1.1 }
+        .prefix(limit)
+        .map(\.0)
+    }
+
+    private static func topCountDeltas<Key: Hashable>(
+        current: [Key: Int],
+        previous: [Key: Int],
+        limit: Int
+    ) -> [String] where Key: CustomStringConvertible {
+        let keys = Set(current.keys).union(previous.keys)
+        return keys.compactMap { key -> (String, Int)? in
+            let delta = (current[key] ?? 0) - (previous[key] ?? 0)
+            guard abs(delta) >= 25 else { return nil }
+            return ("\(key.description) \(format(deltaCount: delta))", abs(delta))
+        }
+        .sorted { $0.1 > $1.1 }
+        .prefix(limit)
+        .map(\.0)
+    }
+
+    private static func deltaRounded(delta: Double) -> Double {
+        if delta.isNaN || delta.isInfinite {
+            return 0
+        }
+        return delta.rounded()
     }
 }

@@ -13,13 +13,13 @@ enum AnalysisType: String, Codable, CaseIterable, Identifiable {
     var defaultPrompt: String {
         switch self {
         case .dailyRecap:
-            "Summarize what the user worked on today with concrete references to apps, times, and category shifts."
+            "Summarize what you worked on with concrete references to apps, times, and category shifts."
         case .productivityAnalysis:
-            "Analyze focus patterns, peak hours, distractions, and work rhythms from the data."
+            "Analyze your focus patterns, peak hours, distractions, and work rhythms from the data."
         case .recommendations:
-            "Generate specific productivity recommendations grounded in the data."
+            "Generate specific productivity recommendations for you grounded in the data."
         case .weekInReview:
-            "Write a weekly review with wins, major themes, and notable work patterns."
+            "Write a weekly review of your wins, major themes, and notable work patterns."
         case .customPrompt:
             ""
         }

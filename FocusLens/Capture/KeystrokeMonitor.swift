@@ -2,6 +2,10 @@ import AppKit
 import ApplicationServices
 import Foundation
 
+private enum KeystrokeMonitorConstants {
+    static let maxTextLength = 2000
+}
+
 struct KeystrokeSegment {
     let app: String
     let bundleID: String?
@@ -20,15 +24,14 @@ final class KeystrokeMonitor: ObservableObject {
     private var segments: [MutableSegment] = []
     private var excludedBundleIDs: Set<String> = []
 
-    fileprivate static let maxTextLength = 2000
-
     static func hasAccessibilityPermission() -> Bool {
         AXIsProcessTrusted()
     }
 
     @discardableResult
     static func requestAccessibilityPermission() -> Bool {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        let promptKey = "AXTrustedCheckOptionPrompt" as CFString
+        let options = [promptKey: true] as CFDictionary
         return AXIsProcessTrustedWithOptions(options)
     }
 
@@ -147,7 +150,7 @@ private final class MutableSegment {
         guard !filtered.isEmpty else { return }
         let clean = String(String.UnicodeScalarView(filtered))
 
-        if textBuffer.count < KeystrokeMonitor.maxTextLength {
+        if textBuffer.count < KeystrokeMonitorConstants.maxTextLength {
             textBuffer.append(clean)
         }
     }

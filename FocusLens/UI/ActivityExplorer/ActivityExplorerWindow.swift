@@ -220,12 +220,48 @@ final class ActivityExplorerViewModel: ObservableObject {
             return
         }
 
+        let currentInterval = selectedRangeInterval
+        let comparisonInterval = selectedDateRange.comparisonBaseline(for: currentInterval)
+        let currentSessions = rangeSessions
+        let currentKeystrokes = rangeKeystrokes
+        let comparisonSessions = (try? appState.database.fetchSessions(in: comparisonInterval)) ?? []
+        let comparisonKeystrokes = (try? appState.database.fetchKeystrokes(in: comparisonInterval)) ?? []
+
         let summary = AnalysisAggregator.buildAnalysisSummary(
-            sessions: rangeSessions,
-            interval: selectedRangeInterval
+            sessions: currentSessions,
+            interval: currentInterval,
+            fallbackInterval: appState.captureInterval.rawValue,
+            keystrokeRecords: currentKeystrokes
+        )
+        let comparisonSummary = AnalysisAggregator.buildComparisonSummary(
+            currentSessions: currentSessions,
+            currentInterval: currentInterval,
+            previousSessions: comparisonSessions,
+            previousInterval: comparisonInterval,
+            fallbackInterval: appState.captureInterval.rawValue,
+            currentKeystrokeRecords: currentKeystrokes,
+            previousKeystrokeRecords: comparisonKeystrokes
         )
         let instruction = analysisType == .customPrompt ? customPrompt : analysisType.defaultPrompt
-        let userPrompt = "\(summary)\n\nTask:\n\(instruction)"
+        let userPrompt = """
+        Activity data:
+        ## Selected period
+        \(summary)
+
+        ## Comparison vs Previous Equivalent Period
+        \(comparisonSummary)
+
+        Response contract:
+        - Write directly to me using "you" and "your".
+        - Never say "the user", "the person", or "they worked on".
+        - Treat the data as evidence. Separate clear observations from lighter inferences.
+        - Every major point must cite concrete support from the timeline, apps, categories, or keystrokes.
+        - Prefer sharp insights over generic productivity advice.
+        - When comparison data exists, explain what changed versus the previous equivalent period.
+
+        Task:
+        \(instruction)
+        """
 
         isGeneratingAnalysis = true
         analysisResponse = ""
@@ -234,12 +270,18 @@ final class ActivityExplorerViewModel: ObservableObject {
         analysisTask = Task {
             do {
                 let systemPrompt = """
-                You are a productivity coach analyzing work session data captured from the person's Mac.
-                Address them directly as "you" — never say "the user."
+                You are writing a private work analysis for the owner of this Mac.
+                Address them directly as "you" and "your."
+                Never say "the user", "the person", "they worked on", or similar third-person phrasing.
                 The data was collected by periodically taking screenshots and classifying what they were working on.
-                Be specific, data-driven, and actionable. Reference actual times, apps, and patterns from the data.
-                Do not be generic. Format your response with clear headers and bullet points.
-                Keep recommendations realistic and prioritized — max 5 actionable items.
+                Be specific, data-driven, and concise. Reference actual times, apps, patterns, and keystroke signals from the data.
+                Use the previous equivalent period as the baseline when comparison data is available. Call out what increased, decreased, or shifted materially.
+                Do not be generic. If the data is sparse or ambiguous, say that plainly instead of inventing certainty.
+                Use markdown with exactly these sections:
+                ## What You Did
+                ## Patterns That Matter
+                ## Recommended Adjustment
+                Under each section, use short bullets only. Keep recommendations realistic and prioritized.
                 """
                 var collected = ""
                 for try await token in appState.llamaClient.streamAnalysis(systemPrompt: systemPrompt, userPrompt: userPrompt, baseURL: baseURL) {
@@ -250,8 +292,8 @@ final class ActivityExplorerViewModel: ObservableObject {
                 if !collected.isEmpty {
                     let record = AnalysisRecord(
                         type: analysisType,
-                        dateRangeStart: selectedRangeInterval.start,
-                        dateRangeEnd: selectedRangeInterval.end,
+                        dateRangeStart: currentInterval.start,
+                        dateRangeEnd: currentInterval.end,
                         prompt: instruction,
                         response: collected
                     )
@@ -371,9 +413,29 @@ final class ActivityExplorerViewModel: ObservableObject {
         case .json:
             return try JSONEncoder.pretty.encode(rangeSessions)
         case .markdown:
-            let summary = AnalysisAggregator.buildAnalysisSummary(sessions: rangeSessions, interval: selectedRangeInterval)
+            let currentInterval = selectedRangeInterval
+            let comparisonInterval = selectedDateRange.comparisonBaseline(for: currentInterval)
+            let comparisonSessions = (try? appState.database.fetchSessions(in: comparisonInterval)) ?? []
+            let comparisonKeystrokes = (try? appState.database.fetchKeystrokes(in: comparisonInterval)) ?? []
+            let summary = AnalysisAggregator.buildAnalysisSummary(
+                sessions: rangeSessions,
+                interval: currentInterval,
+                fallbackInterval: appState.captureInterval.rawValue,
+                keystrokeRecords: rangeKeystrokes
+            )
+            let comparisonSummary = AnalysisAggregator.buildComparisonSummary(
+                currentSessions: rangeSessions,
+                currentInterval: currentInterval,
+                previousSessions: comparisonSessions,
+                previousInterval: comparisonInterval,
+                fallbackInterval: appState.captureInterval.rawValue,
+                currentKeystrokeRecords: rangeKeystrokes,
+                previousKeystrokeRecords: comparisonKeystrokes
+            )
             var markdown = "# FocusLens Report\n\n"
             markdown += "\(summary)\n\n"
+            markdown += "## Comparison vs Previous Equivalent Period\n\n"
+            markdown += "\(comparisonSummary)\n\n"
             markdown += "## Sessions\n"
             for session in rangeSessions {
                 markdown += "- \(session.timestamp.formatted(date: .omitted, time: .shortened)) | \(session.app) | \(session.category.title) | \(session.task)\n"
