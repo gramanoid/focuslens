@@ -259,6 +259,8 @@ final class ActivityExplorerViewModel: ObservableObject {
         - Every major point must cite concrete support from the timeline, apps, categories, or keystrokes.
         - Prefer sharp insights over generic productivity advice.
         - When comparison data exists, explain what changed versus the previous equivalent period.
+        - When browsing or communication details are available, name the specific site, page, thread, document, or person.
+        - If the data does not support a specific site or person, say that it is unspecified instead of inventing one.
         - Use only these markdown headings, in this exact order:
           ## What You Did
           ## Patterns That Matter
@@ -283,6 +285,8 @@ final class ActivityExplorerViewModel: ObservableObject {
                 The data was collected by periodically taking screenshots and classifying what they were working on.
                 Be specific, data-driven, and concise. Reference actual times, apps, patterns, and keystroke signals from the data.
                 Use the previous equivalent period as the baseline when comparison data is available. Call out what increased, decreased, or shifted materially.
+                When browsing or communication details are available, name the specific site, page, thread, document, or person.
+                If the provided data does not support a specific site or person, say that it is unspecified instead of inventing one.
                 Do not be generic. If the data is sparse or ambiguous, say that plainly instead of inventing certainty.
                 Use markdown with exactly these sections:
                 ## What You Did

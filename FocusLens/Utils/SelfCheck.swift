@@ -87,6 +87,7 @@ enum SelfCheck {
         let sessions = [
             SessionRecord(timestamp: date(2026, 4, 1, 9, 0), app: "Xcode", category: .coding, task: "Implement activity analysis", confidence: 0.95),
             SessionRecord(timestamp: date(2026, 4, 1, 9, 30), app: "Mail", category: .communication, task: "Reply to project updates", confidence: 0.7),
+            SessionRecord(timestamp: date(2026, 4, 1, 9, 45), app: "Safari", category: .browsing, task: "Reading GitHub PR #142 comments", confidence: 0.8),
             SessionRecord(timestamp: date(2026, 4, 1, 10, 0), app: "Xcode", category: .coding, task: "Implement activity analysis", confidence: 0.95)
         ]
         let keystrokes = [
@@ -96,6 +97,13 @@ enum SelfCheck {
                 app: "Xcode",
                 typedText: "Refine the analysis summary output",
                 keystrokeCount: 120
+            ),
+            KeystrokeRecord(
+                sessionID: 2,
+                timestamp: date(2026, 4, 1, 9, 31),
+                app: "Mail",
+                typedText: "Following up with Sarah about the spreadsheet review",
+                keystrokeCount: 40
             )
         ]
         let interval = DateInterval(start: date(2026, 4, 1, 0, 0), end: date(2026, 4, 2, 0, 0))
@@ -109,6 +117,10 @@ enum SelfCheck {
         try expect(summary.contains("Focus profile:"), "Summary should include focus-profile metrics")
         try expect(summary.contains("Notable session blocks:"), "Summary should include concrete block highlights")
         try expect(summary.contains("Recurring task themes:"), "Summary should include recurring task themes")
+        try expect(summary.contains("Browsing details:"), "Summary should include browsing details when present")
+        try expect(summary.contains("Reading GitHub PR #142 comments"), "Summary should keep specific browsing details")
+        try expect(summary.contains("Communication details:"), "Summary should include communication details when present")
+        try expect(summary.contains("Following up with Sarah"), "Summary should include specific communication text samples")
         try expect(summary.contains("Keystroke activity:"), "Summary should include keystroke activity when present")
         try expect(summary.contains("Top typing apps: Xcode (120 keys)"), "Summary should list top typing apps")
     }

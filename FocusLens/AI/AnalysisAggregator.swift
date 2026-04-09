@@ -393,6 +393,13 @@ enum AnalysisAggregator {
             }
             .prefix(5)
         let taskThemes = topTaskThemes(in: merged, limit: 5)
+        let browsingHighlights = detailHighlights(in: merged, categories: [.browsing], limit: 4)
+        let communicationHighlights = detailHighlights(in: merged, categories: [.communication], limit: 4)
+        let communicationSamples = keystrokeSamples(
+            from: keystrokeRecords,
+            apps: Set(communicationHighlights.map(\.app)),
+            limit: 3
+        )
         let transitions = topCategoryTransitions(in: merged, limit: 3)
         let switchHotspots = switches
             .filter { $0.averageSwitches > 0 }
@@ -440,6 +447,23 @@ enum AnalysisAggregator {
             lines.append("Recurring task themes:")
             for theme in taskThemes {
                 lines.append("- \(theme.task) - \(theme.occurrences)x for \(format(duration: theme.duration))")
+            }
+        }
+        if !browsingHighlights.isEmpty {
+            lines.append("")
+            lines.append("Browsing details:")
+            for block in browsingHighlights {
+                lines.append("- \(block.app): \(compactTask(block.task)) (\(format(duration: block.duration)))")
+            }
+        }
+        if !communicationHighlights.isEmpty {
+            lines.append("")
+            lines.append("Communication details:")
+            for block in communicationHighlights {
+                lines.append("- \(block.app): \(compactTask(block.task)) (\(format(duration: block.duration)))")
+            }
+            for sample in communicationSamples {
+                lines.append("- Typed sample [\(sample.app)]: \"\(sample.text)\"")
             }
         }
         lines.append("")
@@ -842,6 +866,44 @@ enum AnalysisAggregator {
             }
             return $0.focusRatio > $1.focusRatio
         }
+        .prefix(limit)
+        .map { $0 }
+    }
+
+    private static func detailHighlights(
+        in blocks: [SessionBlock],
+        categories: Set<ActivityCategory>,
+        limit: Int
+    ) -> [SessionBlock] {
+        blocks
+            .filter { categories.contains($0.category) && !compactTask($0.task).isEmpty }
+            .sorted {
+                if $0.duration == $1.duration {
+                    return $0.start < $1.start
+                }
+                return $0.duration > $1.duration
+            }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    private static func keystrokeSamples(
+        from records: [KeystrokeRecord],
+        apps: Set<String>,
+        limit: Int
+    ) -> [(app: String, text: String)] {
+        guard !apps.isEmpty else { return [] }
+
+        let grouped = Dictionary(grouping: records.filter { apps.contains($0.app) }, by: \.app)
+        return grouped.compactMap { app, appRecords in
+            let sample = appRecords
+                .map(\.typedText)
+                .joined(separator: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !sample.isEmpty else { return nil }
+            return (app: app, text: compactTask(sample, maxLength: 140))
+        }
+        .sorted { $0.text.count > $1.text.count }
         .prefix(limit)
         .map { $0 }
     }
