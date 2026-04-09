@@ -4,6 +4,8 @@ enum SelfCheck {
     static func run() throws {
         try customDateRangeIncludesEntireEndDay()
         try comparisonBaselineMatchesEquivalentWindow()
+        try keystrokeSegmentsSplitAcrossLargeGaps()
+        try keystrokeSegmentsAreCleanedBeforePersistence()
         try enumerateDaysDoesNotIncludeExclusiveEndDay()
         try averageTrackedMinutesByHourAveragesAcrossDays()
         try buildAnalysisSummaryUsesAveragedHourlyPattern()
@@ -42,6 +44,72 @@ enum SelfCheck {
         let customBaseline = custom.comparisonBaseline(for: customCurrent, calendar: calendar)
         try expect(customBaseline.start == date(2026, 4, 6, 9, 0), "Custom baseline should use the immediately preceding equal-length interval")
         try expect(customBaseline.end == date(2026, 4, 8, 9, 0), "Custom baseline should end at the current interval start")
+    }
+
+    private static func keystrokeSegmentsSplitAcrossLargeGaps() throws {
+        let earlier = KeystrokeSegment(
+            app: "Codex",
+            bundleID: "com.openai.codex",
+            text: "hello",
+            keystrokeCount: 5,
+            startTime: date(2026, 4, 8, 9, 0),
+            endTime: date(2026, 4, 8, 9, 0)
+        )
+
+        try expect(
+            KeystrokeSegmentProcessor.shouldAppend(
+                to: earlier,
+                app: "Codex",
+                bundleID: "com.openai.codex",
+                at: date(2026, 4, 8, 9, 0)
+            ),
+            "Same-app keystrokes within the gap threshold should stay in one segment"
+        )
+
+        try expect(
+            !KeystrokeSegmentProcessor.shouldAppend(
+                to: earlier,
+                app: "Codex",
+                bundleID: "com.openai.codex",
+                at: date(2026, 4, 8, 9, 1)
+            ),
+            "Large pauses should split keystrokes into a new segment"
+        )
+    }
+
+    private static func keystrokeSegmentsAreCleanedBeforePersistence() throws {
+        let segments = [
+            KeystrokeSegment(
+                app: "Codex",
+                bundleID: "com.openai.codex",
+                text: "hello\r",
+                keystrokeCount: 5,
+                startTime: date(2026, 4, 8, 9, 0),
+                endTime: date(2026, 4, 8, 9, 0)
+            ),
+            KeystrokeSegment(
+                app: "Codex",
+                bundleID: "com.openai.codex",
+                text: "world",
+                keystrokeCount: 4,
+                startTime: date(2026, 4, 8, 9, 0),
+                endTime: date(2026, 4, 8, 9, 0)
+            ),
+            KeystrokeSegment(
+                app: "Telegram",
+                bundleID: "ru.keepcoder.Telegram",
+                text: "v",
+                keystrokeCount: 1,
+                startTime: date(2026, 4, 8, 9, 1),
+                endTime: date(2026, 4, 8, 9, 1)
+            )
+        ]
+
+        let finalized = KeystrokeSegmentProcessor.finalize(segments)
+        try expect(finalized.count == 1, "Cleanup should merge adjacent same-app segments and drop low-signal fragments")
+        try expect(finalized[0].app == "Codex", "Merged keystroke segment should preserve the source app")
+        try expect(finalized[0].text == "hello world", "Merged segment text should be normalized and readable")
+        try expect(finalized[0].keystrokeCount == 9, "Merged segment should preserve total keystroke counts")
     }
 
     private static func enumerateDaysDoesNotIncludeExclusiveEndDay() throws {
