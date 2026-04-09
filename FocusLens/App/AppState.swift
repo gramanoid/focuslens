@@ -69,6 +69,7 @@ final class AppState: ObservableObject {
     private let defaults: UserDefaults
     private var healthTask: Task<Void, Never>?
     private var lastScreenshotHash: UInt64?
+    private var hasVerifiedScreenCaptureAccess = false
     private var sleepStartedAt: Date?
     private lazy var scheduler = CaptureScheduler(
         intervalProvider: { [weak self] in
@@ -325,7 +326,11 @@ final class AppState: ObservableObject {
     }
 
     func refreshPermissionState() {
-        screenPermissionGranted = ScreenCapture.hasPermission()
+        let preflightGranted = ScreenCapture.hasPermission()
+        if preflightGranted {
+            hasVerifiedScreenCaptureAccess = true
+        }
+        screenPermissionGranted = hasVerifiedScreenCaptureAccess || preflightGranted
         let wasAccessibilityGranted = accessibilityPermissionGranted
         accessibilityPermissionGranted = KeystrokeMonitor.hasAccessibilityPermission()
         if screenPermissionGranted && showPermissionSheet {
@@ -560,11 +565,6 @@ final class AppState: ObservableObject {
         guard !isCaptureInFlight else { return }
         guard manual || isRunning else { return }
         refreshPermissionState()
-        guard screenPermissionGranted else {
-            showPermissionSheet = true
-            captureStatus = .warning
-            return
-        }
         guard let baseURL = serverBaseURL else {
             captureStatus = .warning
             return
@@ -597,6 +597,11 @@ final class AppState: ObservableObject {
 
             let customDir = screenshotDirectoryPath.isEmpty ? nil : screenshotDirectoryPath
             let payload = try ScreenCapture.capture(screenshotDirectory: customDir)
+            hasVerifiedScreenCaptureAccess = true
+            screenPermissionGranted = true
+            if showPermissionSheet {
+                showPermissionSheet = false
+            }
 
             // Skip system processes that should never be tracked
             let systemSkipList: Set<String> = [
@@ -702,6 +707,14 @@ final class AppState: ObservableObject {
             captureStatus = .idle
             lastErrorMessage = nil
         } catch {
+            if case ScreenCaptureError.permissionDenied = error {
+                hasVerifiedScreenCaptureAccess = false
+                screenPermissionGranted = false
+                showPermissionSheet = true
+                captureStatus = .warning
+                lastErrorMessage = error.localizedDescription
+                return
+            }
             lastErrorMessage = error.localizedDescription
             captureStatus = serverReachable ? .idle : .warning
         }
@@ -929,6 +942,10 @@ final class AppState: ObservableObject {
         }
         lines.append("Use this typed text alongside the screenshot to determine what the user is doing.")
         return lines.joined(separator: "\n")
+    }
+
+    nonisolated static func resolveScreenPermission(preflightGranted: Bool, verifiedByCapture: Bool) -> Bool {
+        preflightGranted || verifiedByCapture
     }
 
     private enum Keys {

@@ -4,6 +4,7 @@ enum SelfCheck {
     static func run() throws {
         try customDateRangeIncludesEntireEndDay()
         try comparisonBaselineMatchesEquivalentWindow()
+        try verifiedCaptureOverridesStaleScreenPermissionProbe()
         try keystrokeSegmentsSplitAcrossLargeGaps()
         try keystrokeSegmentsAreCleanedBeforePersistence()
         try enumerateDaysDoesNotIncludeExclusiveEndDay()
@@ -44,6 +45,17 @@ enum SelfCheck {
         let customBaseline = custom.comparisonBaseline(for: customCurrent, calendar: calendar)
         try expect(customBaseline.start == date(2026, 4, 6, 9, 0), "Custom baseline should use the immediately preceding equal-length interval")
         try expect(customBaseline.end == date(2026, 4, 8, 9, 0), "Custom baseline should end at the current interval start")
+    }
+
+    private static func verifiedCaptureOverridesStaleScreenPermissionProbe() throws {
+        try expect(
+            AppState.resolveScreenPermission(preflightGranted: false, verifiedByCapture: true),
+            "A successful capture should override a stale false preflight result"
+        )
+        try expect(
+            !AppState.resolveScreenPermission(preflightGranted: false, verifiedByCapture: false),
+            "Without preflight permission or a verified capture, screen access should remain false"
+        )
     }
 
     private static func keystrokeSegmentsSplitAcrossLargeGaps() throws {
