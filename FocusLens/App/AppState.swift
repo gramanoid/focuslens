@@ -763,12 +763,34 @@ final class AppState: ObservableObject {
         defaults.set(enabled, forKey: Keys.autoJournalEnabled)
     }
 
+    func preparedJournalDirectoryURL() -> URL? {
+        let trimmedPath = journalDirectoryPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPath.isEmpty else { return nil }
+        let fileManager = FileManager.default
+
+        let directory = URL(
+            fileURLWithPath: NSString(string: trimmedPath).expandingTildeInPath,
+            isDirectory: true
+        )
+
+        do {
+            try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+            return directory
+        } catch {
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: directory.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue,
+                  fileManager.isWritableFile(atPath: directory.path) else {
+                return nil
+            }
+            return directory
+        }
+    }
+
     func generateJournalOnQuit() {
-        guard autoJournalEnabled else { return }
-        let expandedPath = NSString(string: journalDirectoryPath).expandingTildeInPath
-        let dir = URL(fileURLWithPath: expandedPath)
+        guard autoJournalEnabled, let dir = preparedJournalDirectoryURL() else { return }
         let generator = WorkJournalGenerator(database: database)
-        try? generator.writeJournal(for: .now, to: dir, captureInterval: captureInterval.rawValue)
+        _ = try? generator.writeJournal(for: .now, to: dir, captureInterval: captureInterval.rawValue)
     }
 
     func cleanupOldScreenshots() {

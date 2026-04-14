@@ -201,6 +201,9 @@ final class ActivityExplorerViewModel: ObservableObject {
             let payload = try exportPayload(for: format)
             let panel = NSSavePanel()
             panel.canCreateDirectories = true
+            if let journalDirectory = appState.preparedJournalDirectoryURL() {
+                panel.directoryURL = journalDirectory
+            }
             panel.nameFieldStringValue = "FocusLens-\(format.rawValue.lowercased())-\(Int(Date().timeIntervalSince1970)).\(format.fileExtension)"
             if panel.runModal() == .OK, let url = panel.url {
                 try payload.write(to: url, options: .atomic)
@@ -357,6 +360,9 @@ final class ActivityExplorerViewModel: ObservableObject {
             let panel = NSSavePanel()
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd"
+            if let journalDirectory = appState.preparedJournalDirectoryURL() {
+                panel.directoryURL = journalDirectory
+            }
             panel.nameFieldStringValue = "\(formatter.string(from: selectedDay)).md"
             panel.canCreateDirectories = true
             if panel.runModal() == .OK, let url = panel.url {
