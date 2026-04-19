@@ -6,6 +6,7 @@ enum AnalysisType: String, Codable, CaseIterable, Identifiable {
     case productivityAnalysis = "Productivity Analysis"
     case recommendations = "Recommendations"
     case weekInReview = "Week in Review"
+    case morningBriefing = "Morning Briefing"
     case customPrompt = "Custom Prompt"
 
     var id: String { rawValue }
@@ -20,6 +21,8 @@ enum AnalysisType: String, Codable, CaseIterable, Identifiable {
             "Generate specific productivity recommendations for you grounded in the data."
         case .weekInReview:
             "Write a weekly review of your wins, major themes, and notable work patterns."
+        case .morningBriefing:
+            "Generate a pre-shift intelligence briefing: what was left incomplete, what to protect today, and what to watch out for."
         case .customPrompt:
             ""
         }

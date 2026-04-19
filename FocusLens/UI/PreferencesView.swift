@@ -200,7 +200,7 @@ struct PreferencesView: View {
                             Text("Never").tag(0)
                         }
                         .pickerStyle(.segmented)
-                        Text("At 30s intervals, screenshots use ~2.6 GB/day. Older screenshots are deleted on launch.")
+                        Text("At 30s intervals, screenshots use ~2.6 GB/day. Older screenshots are deleted every 24 hours and on launch.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -250,22 +250,22 @@ struct PreferencesView: View {
     }
 
     private var journalSection: some View {
-        SurfaceCard(title: "Work Journal", subtitle: "Auto-generate a daily markdown journal summarizing your work.") {
+        SurfaceCard(title: "Work Journal & Data Export", subtitle: "Auto-generate a daily markdown journal and JSON data export of your sessions, keystrokes, and analyses.") {
             VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                 Toggle(isOn: Binding(
                     get: { appState.autoJournalEnabled },
                     set: { appState.updateAutoJournal($0) }
                 )) {
                     VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                        Text("Generate journal on quit")
-                        Text("Creates a markdown file when FocusLens exits, summarizing the day's activity.")
+                        Text("Auto-generate journal & JSON export")
+                        Text("Writes a markdown journal and a complementary JSON file every 24 hours and on quit. The JSON includes all sessions, keystrokes, and AI analyses for the day.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                    Text("Journal folder")
+                    Text("Journal & export folder")
                         .font(.subheadline.weight(.medium))
                     HStack {
                         TextField("~/Documents/FocusLens/journals", text: Binding(
@@ -284,7 +284,7 @@ struct PreferencesView: View {
                         }
                         .buttonStyle(.bordered)
                     }
-                    Text("Journals are saved as YYYY-MM-DD.md with YAML frontmatter for easy indexing.")
+                    Text("Markdown journals saved as YYYY-MM-DD.md. JSON exports saved as YYYY-MM-DD.json.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

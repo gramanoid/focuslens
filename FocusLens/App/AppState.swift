@@ -66,8 +66,19 @@ final class AppState: ObservableObject {
     let keystrokeMonitor = KeystrokeMonitor()
     let updater = AppUpdater()
 
+    // Intelligence engines
+    let embeddingClient: GeminiEmbeddingClient
+    lazy var clusteringEngine = ProjectClusteringEngine(database: database, embeddingClient: embeddingClient)
+    lazy var anomalyEngine = AnomalyDetectionEngine(database: database)
+    lazy var briefingGenerator = MorningBriefingGenerator(database: database)
+    lazy var semanticSearch = SemanticSearchEngine(database: database, embeddingClient: embeddingClient)
+
     private let defaults: UserDefaults
     private var healthTask: Task<Void, Never>?
+    private var screenshotCleanupTask: Task<Void, Never>?
+    private var autoExportTask: Task<Void, Never>?
+    private var intelligenceTask: Task<Void, Never>?
+    private var embeddingBackfillTask: Task<Void, Never>?
     private var lastScreenshotHash: UInt64?
     private var hasVerifiedScreenCaptureAccess = false
     private var sleepStartedAt: Date?
@@ -86,6 +97,7 @@ final class AppState: ObservableObject {
     ) {
         self.database = database ?? AppDatabase.makeDefault()
         self.llamaClient = llamaClient
+        self.embeddingClient = GeminiEmbeddingClient(apiKey: Self.geminiAPIKey)
         defaults = UserDefaults.standard
         isRunning = defaults.object(forKey: Keys.isRunning) as? Bool ?? true
         captureInterval = CaptureIntervalOption(rawValue: defaults.double(forKey: Keys.captureInterval)).map { $0 } ?? .oneMinute
@@ -225,6 +237,9 @@ final class AppState: ObservableObject {
         }
 
         cleanupOldScreenshots()
+        startScreenshotCleanupTimer()
+        startAutoExportTimer()
+        startIntelligencePipeline()
         startHealthChecks()
         updateScheduler()
         startSleepWakeObserver()
@@ -761,6 +776,12 @@ final class AppState: ObservableObject {
     func updateAutoJournal(_ enabled: Bool) {
         autoJournalEnabled = enabled
         defaults.set(enabled, forKey: Keys.autoJournalEnabled)
+        if enabled {
+            startAutoExportTimer()
+        } else {
+            autoExportTask?.cancel()
+            autoExportTask = nil
+        }
     }
 
     func preparedJournalDirectoryURL() -> URL? {
@@ -791,6 +812,7 @@ final class AppState: ObservableObject {
         guard autoJournalEnabled, let dir = preparedJournalDirectoryURL() else { return }
         let generator = WorkJournalGenerator(database: database)
         _ = try? generator.writeJournal(for: .now, to: dir, captureInterval: captureInterval.rawValue)
+        runAutoDataExport()
     }
 
     func cleanupOldScreenshots() {
@@ -843,6 +865,159 @@ final class AppState: ObservableObject {
         serverProcess.stop()
     }
 
+    // MARK: - Periodic Screenshot Cleanup
+
+    private func startScreenshotCleanupTimer() {
+        screenshotCleanupTask?.cancel()
+        screenshotCleanupTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: 24 * 3600 * 1_000_000_000)
+                } catch { break }
+                await self?.cleanupOldScreenshots()
+            }
+        }
+    }
+
+    // MARK: - Auto JSON Export
+
+    private func startAutoExportTimer() {
+        autoExportTask?.cancel()
+        autoExportTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: 24 * 3600 * 1_000_000_000)
+                } catch { break }
+                await self?.runAutoDataExport()
+            }
+        }
+    }
+
+    @MainActor
+    func runAutoDataExport() {
+        guard autoJournalEnabled, let dir = preparedJournalDirectoryURL() else { return }
+
+        let calendar = Calendar.current
+        let now = Date()
+        let dayStart = calendar.startOfDay(for: now)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+        let interval = DateInterval(start: dayStart, end: dayEnd)
+
+        let sessions = (try? database.fetchSessions(in: interval)) ?? []
+        let keystrokes = (try? database.fetchKeystrokes(in: interval)) ?? []
+        let analyses = (try? database.fetchAnalyses(limit: 100)) ?? []
+        let relevantAnalyses = analyses.filter { $0.dateRangeStart <= dayEnd && $0.dateRangeEnd >= dayStart }
+
+        // Intelligence data
+        let projects = (try? database.fetchProjects(in: interval)) ?? []
+        let snapshots = (try? database.fetchDailySnapshots(limit: 30)) ?? []
+        let anomalies = (try? database.fetchAnomalyEvents(since: calendar.date(byAdding: .day, value: -7, to: now) ?? now)) ?? []
+
+        guard !sessions.isEmpty else { return }
+
+        // Build session-project assignments for today's sessions
+        var sessionProjectMap: [Int64: [Int64]] = [:]
+        for session in sessions {
+            if let sessionID = session.id {
+                let projectIDs = (try? database.fetchProjectIDsForSession(sessionID: sessionID)) ?? []
+                if !projectIDs.isEmpty {
+                    sessionProjectMap[sessionID] = projectIDs
+                }
+            }
+        }
+
+        let iso = ISO8601DateFormatter()
+
+        let payload: [String: Any] = [
+            "date": Self.dateOnlyFormatter.string(from: now),
+            "generated_at": iso.string(from: now),
+            "schema_version": 2,
+
+            "sessions": sessions.map { session -> [String: Any] in
+                var dict: [String: Any] = [
+                    "id": session.id as Any,
+                    "timestamp": iso.string(from: session.timestamp),
+                    "app": session.app,
+                    "bundle_id": session.bundleID as Any,
+                    "category": session.category.rawValue,
+                    "task": session.task,
+                    "confidence": session.confidence,
+                    "screenshot_path": session.screenshotPath as Any
+                ]
+                if let sessionID = session.id, let projectIDs = sessionProjectMap[sessionID] {
+                    dict["project_ids"] = projectIDs
+                }
+                return dict
+            },
+
+            "keystrokes": keystrokes.map { [
+                "id": $0.id as Any,
+                "session_id": $0.sessionID,
+                "timestamp": iso.string(from: $0.timestamp),
+                "app": $0.app,
+                "bundle_id": $0.bundleID as Any,
+                "typed_text": $0.typedText,
+                "keystroke_count": $0.keystrokeCount
+            ] },
+
+            "analyses": relevantAnalyses.map { [
+                "id": $0.id as Any,
+                "timestamp": iso.string(from: $0.timestamp),
+                "type": $0.type.rawValue,
+                "date_range_start": iso.string(from: $0.dateRangeStart),
+                "date_range_end": iso.string(from: $0.dateRangeEnd),
+                "prompt": $0.prompt,
+                "response": $0.response
+            ] },
+
+            "projects": projects.map { [
+                "id": $0.id as Any,
+                "name": $0.name,
+                "first_seen": iso.string(from: $0.firstSeen),
+                "last_seen": iso.string(from: $0.lastSeen),
+                "total_duration_seconds": $0.totalDuration,
+                "dominant_apps": $0.dominantApps,
+                "category_distribution": $0.categoryDistribution,
+                "session_count": $0.sessionCount
+            ] },
+
+            "daily_snapshots": snapshots.map { [
+                "date": Self.dateOnlyFormatter.string(from: $0.date),
+                "focus_score": $0.focusScore,
+                "deep_work_minutes": $0.deepWorkMinutes,
+                "reactive_minutes": $0.reactiveMinutes,
+                "context_switches": $0.contextSwitches,
+                "top_app": $0.topApp as Any,
+                "top_category": $0.topCategory as Any,
+                "session_count": $0.sessionCount,
+                "keystroke_count": $0.keystrokeCount
+            ] },
+
+            "anomalies": anomalies.map { [
+                "id": $0.id as Any,
+                "timestamp": iso.string(from: $0.timestamp),
+                "metric": $0.metric,
+                "value": $0.value,
+                "baseline_mean": $0.baselineMean,
+                "baseline_stddev": $0.baselineStddev,
+                "sigma": $0.sigma,
+                "severity": $0.severity,
+                "message": $0.message
+            ] }
+        ]
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) else { return }
+        let filename = Self.dateOnlyFormatter.string(from: now) + ".json"
+        let fileURL = dir.appendingPathComponent(filename)
+        try? jsonData.write(to: fileURL, options: .atomic)
+    }
+
+    private static let dateOnlyFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
     // MARK: - Re-analysis of Low-Quality Sessions
 
     func runReanalysis() {
@@ -877,6 +1052,103 @@ final class AppState: ObservableObject {
             }
             refreshRecentEntries()
             refreshTodaySummary()
+        }
+    }
+
+    // MARK: - Intelligence Pipeline
+
+    private func startIntelligencePipeline() {
+        // Backfill daily snapshots for all historical days
+        try? anomalyEngine.backfillSnapshots()
+        // Run project clustering on existing data
+        try? clusteringEngine.clusterAll()
+        // Backfill embeddings for sessions that don't have them yet
+        startEmbeddingBackfill()
+
+        // Run intelligence cycle every 6 hours:
+        // - Re-cluster projects
+        // - Compute today's snapshot
+        // - Check for anomalies
+        intelligenceTask?.cancel()
+        intelligenceTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: 6 * 3600 * 1_000_000_000)
+                } catch { break }
+                guard let self else { break }
+                try? self.clusteringEngine.clusterAll()
+                try? self.anomalyEngine.computeAndStoreSnapshot(for: .now)
+                try? self.anomalyEngine.checkForAnomalies()
+            }
+        }
+    }
+
+    private func startEmbeddingBackfill() {
+        embeddingBackfillTask?.cancel()
+        embeddingBackfillTask = Task { [weak self] in
+            guard let self else { return }
+            // Process embeddings in batches of 20 to avoid API rate limits
+            while !Task.isCancelled {
+                guard let sessions = try? self.database.fetchSessionsWithoutEmbeddings(limit: 20),
+                      !sessions.isEmpty else { break }
+
+                let texts = sessions.map { "\($0.app): \($0.task)" }
+                do {
+                    let embeddings = try await self.embeddingClient.embedBatch(texts: texts)
+                    for (session, embedding) in zip(sessions, embeddings) where embedding.count > 0 {
+                        if let sessionID = session.id {
+                            let data = GeminiEmbeddingClient.serialize(embedding)
+                            try self.database.saveEmbedding(sessionID: sessionID, embedding: data, dimensions: embedding.count)
+                        }
+                    }
+                } catch {
+                    // Rate limited or API error — wait and retry
+                    try? await Task.sleep(nanoseconds: 60 * 1_000_000_000)
+                }
+                // Small delay between batches
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+            }
+        }
+    }
+
+    /// Generate and store a morning briefing using the AI pipeline.
+    func generateMorningBriefing() {
+        guard let baseURL = serverBaseURL, serverReachable else { return }
+
+        Task {
+            do {
+                let context = try briefingGenerator.buildBriefingPrompt()
+                guard !context.isEmpty else { return }
+
+                let systemPrompt = briefingGenerator.systemPrompt
+                let now = Date()
+                let calendar = Calendar.current
+                let todayStart = calendar.startOfDay(for: now)
+                let todayEnd = calendar.date(byAdding: .day, value: 1, to: todayStart) ?? todayStart
+
+                var collected = ""
+                for try await token in llamaClient.streamAnalysis(
+                    systemPrompt: systemPrompt,
+                    userPrompt: context,
+                    baseURL: baseURL
+                ) {
+                    collected += token
+                }
+
+                if !collected.isEmpty {
+                    let formatted = AnalysisResponseFormatter.sanitize(collected)
+                    let record = AnalysisRecord(
+                        type: .morningBriefing,
+                        dateRangeStart: todayStart,
+                        dateRangeEnd: todayEnd,
+                        prompt: context,
+                        response: formatted
+                    )
+                    _ = try database.saveAnalysis(record)
+                }
+            } catch {
+                lastErrorMessage = error.localizedDescription
+            }
         }
     }
 
@@ -987,7 +1259,12 @@ final class AppState: ObservableObject {
         static let idleThresholdMinutes = "focuslens.idleThresholdMinutes"
         static let journalDirectory = "focuslens.journalDirectory"
         static let autoJournalEnabled = "focuslens.autoJournalEnabled"
+        static let geminiAPIKey = "focuslens.geminiAPIKey"
     }
+
+    private static let geminiAPIKey: String = {
+        UserDefaults.standard.string(forKey: Keys.geminiAPIKey) ?? ""
+    }()
 
     /// Returns seconds since last keyboard or mouse event (HID-level, unaffected by caffeine apps).
     static func userIdleSeconds() -> Double {

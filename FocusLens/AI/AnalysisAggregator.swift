@@ -794,7 +794,7 @@ enum AnalysisAggregator {
         return insights
     }
 
-    private static func duration(of blocks: [SessionBlock], in categories: Set<ActivityCategory>) -> TimeInterval {
+    static func duration(of blocks: [SessionBlock], in categories: Set<ActivityCategory>) -> TimeInterval {
         blocks
             .filter { categories.contains($0.category) }
             .reduce(0) { $0 + $1.duration }

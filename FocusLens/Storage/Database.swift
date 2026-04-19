@@ -142,6 +142,67 @@ final class AppDatabase: @unchecked Sendable {
             """)
         }
 
+        migrator.registerMigration("createProjects") { db in
+            try db.create(table: "projects", ifNotExists: true) { table in
+                table.autoIncrementedPrimaryKey("id")
+                table.column("name", .text).notNull()
+                table.column("first_seen", .double).notNull()
+                table.column("last_seen", .double).notNull()
+                table.column("total_duration", .double).notNull().defaults(to: 0)
+                table.column("dominant_apps", .text).notNull().defaults(to: "[]")
+                table.column("category_distribution", .text).notNull().defaults(to: "{}")
+                table.column("session_count", .integer).notNull().defaults(to: 0)
+            }
+        }
+
+        migrator.registerMigration("createSessionProjects") { db in
+            try db.create(table: "session_projects", ifNotExists: true) { table in
+                table.column("session_id", .integer).notNull().references("sessions", onDelete: .cascade)
+                table.column("project_id", .integer).notNull().references("projects", onDelete: .cascade)
+                table.primaryKey(["session_id", "project_id"])
+            }
+            try db.create(index: "session_projects_session_idx", on: "session_projects", columns: ["session_id"], ifNotExists: true)
+            try db.create(index: "session_projects_project_idx", on: "session_projects", columns: ["project_id"], ifNotExists: true)
+        }
+
+        migrator.registerMigration("createSessionEmbeddings") { db in
+            try db.create(table: "session_embeddings", ifNotExists: true) { table in
+                table.column("session_id", .integer).notNull().references("sessions", onDelete: .cascade).unique()
+                table.column("embedding", .blob).notNull()
+                table.column("dimensions", .integer).notNull()
+            }
+            try db.create(index: "session_embeddings_session_idx", on: "session_embeddings", columns: ["session_id"], ifNotExists: true)
+        }
+
+        migrator.registerMigration("createDailySnapshots") { db in
+            try db.create(table: "daily_snapshots", ifNotExists: true) { table in
+                table.autoIncrementedPrimaryKey("id")
+                table.column("date", .double).notNull().unique()
+                table.column("focus_score", .double).notNull().defaults(to: 0)
+                table.column("deep_work_minutes", .double).notNull().defaults(to: 0)
+                table.column("reactive_minutes", .double).notNull().defaults(to: 0)
+                table.column("context_switches", .integer).notNull().defaults(to: 0)
+                table.column("top_app", .text)
+                table.column("top_category", .text)
+                table.column("session_count", .integer).notNull().defaults(to: 0)
+                table.column("keystroke_count", .integer).notNull().defaults(to: 0)
+            }
+        }
+
+        migrator.registerMigration("createAnomalyEvents") { db in
+            try db.create(table: "anomaly_events", ifNotExists: true) { table in
+                table.autoIncrementedPrimaryKey("id")
+                table.column("timestamp", .double).notNull()
+                table.column("metric", .text).notNull()
+                table.column("value", .double).notNull()
+                table.column("baseline_mean", .double).notNull()
+                table.column("baseline_stddev", .double).notNull()
+                table.column("severity", .text).notNull()
+                table.column("message", .text).notNull()
+            }
+            try db.create(index: "anomaly_events_timestamp_idx", on: "anomaly_events", columns: ["timestamp"], ifNotExists: true)
+        }
+
         return migrator
     }
 
@@ -389,6 +450,264 @@ final class AppDatabase: @unchecked Sendable {
                 """,
                 arguments: [interval.start.timeIntervalSince1970, interval.end.timeIntervalSince1970]
             ).map(KeystrokeRecord.init(row:))
+        }
+    }
+
+    // MARK: - Projects
+
+    func saveProject(_ project: ProjectRecord) throws -> ProjectRecord {
+        var stored = project
+        try dbQueue.write { db in
+            if let id = stored.id {
+                try db.execute(
+                    sql: """
+                    UPDATE projects SET name = ?, first_seen = ?, last_seen = ?, total_duration = ?,
+                        dominant_apps = ?, category_distribution = ?, session_count = ?
+                    WHERE id = ?
+                    """,
+                    arguments: [
+                        stored.name,
+                        stored.firstSeen.timeIntervalSince1970,
+                        stored.lastSeen.timeIntervalSince1970,
+                        stored.totalDuration,
+                        stored.dominantApps,
+                        stored.categoryDistribution,
+                        stored.sessionCount,
+                        id
+                    ]
+                )
+            } else {
+                try db.execute(
+                    sql: """
+                    INSERT INTO projects (name, first_seen, last_seen, total_duration, dominant_apps, category_distribution, session_count)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    arguments: [
+                        stored.name,
+                        stored.firstSeen.timeIntervalSince1970,
+                        stored.lastSeen.timeIntervalSince1970,
+                        stored.totalDuration,
+                        stored.dominantApps,
+                        stored.categoryDistribution,
+                        stored.sessionCount
+                    ]
+                )
+                stored.id = db.lastInsertedRowID
+            }
+        }
+        return stored
+    }
+
+    func fetchAllProjects() throws -> [ProjectRecord] {
+        try dbQueue.read { db in
+            try Row.fetchAll(
+                db,
+                sql: "SELECT * FROM projects ORDER BY last_seen DESC"
+            ).map(ProjectRecord.init(row:))
+        }
+    }
+
+    func fetchProjects(in interval: DateInterval) throws -> [ProjectRecord] {
+        try dbQueue.read { db in
+            try Row.fetchAll(
+                db,
+                sql: """
+                SELECT * FROM projects
+                WHERE last_seen >= ? AND first_seen < ?
+                ORDER BY last_seen DESC
+                """,
+                arguments: [interval.start.timeIntervalSince1970, interval.end.timeIntervalSince1970]
+            ).map(ProjectRecord.init(row:))
+        }
+    }
+
+    func assignSessionToProject(sessionID: Int64, projectID: Int64) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: "INSERT OR IGNORE INTO session_projects (session_id, project_id) VALUES (?, ?)",
+                arguments: [sessionID, projectID]
+            )
+        }
+    }
+
+    func fetchProjectIDsForSession(sessionID: Int64) throws -> [Int64] {
+        try dbQueue.read { db in
+            try Int64.fetchAll(
+                db,
+                sql: "SELECT project_id FROM session_projects WHERE session_id = ?",
+                arguments: [sessionID]
+            )
+        }
+    }
+
+    func fetchSessionsForProject(projectID: Int64) throws -> [SessionRecord] {
+        try dbQueue.read { db in
+            try Row.fetchAll(
+                db,
+                sql: """
+                SELECT s.* FROM sessions s
+                JOIN session_projects sp ON sp.session_id = s.id
+                WHERE sp.project_id = ?
+                ORDER BY s.timestamp ASC
+                """,
+                arguments: [projectID]
+            ).map(SessionRecord.init(row:))
+        }
+    }
+
+    func clearSessionProjects() throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM session_projects")
+        }
+    }
+
+    // MARK: - Embeddings
+
+    func saveEmbedding(sessionID: Int64, embedding: Data, dimensions: Int) throws {
+        try dbQueue.write { db in
+            try db.execute(
+                sql: "INSERT OR REPLACE INTO session_embeddings (session_id, embedding, dimensions) VALUES (?, ?, ?)",
+                arguments: [sessionID, embedding, dimensions]
+            )
+        }
+    }
+
+    func fetchEmbedding(sessionID: Int64) throws -> (embedding: Data, dimensions: Int)? {
+        try dbQueue.read { db in
+            guard let row = try Row.fetchOne(
+                db,
+                sql: "SELECT embedding, dimensions FROM session_embeddings WHERE session_id = ?",
+                arguments: [sessionID]
+            ) else { return nil }
+            let data: Data = row["embedding"]
+            let dims: Int = row["dimensions"]
+            return (data, dims)
+        }
+    }
+
+    func fetchSessionsWithoutEmbeddings(limit: Int = 100) throws -> [SessionRecord] {
+        try dbQueue.read { db in
+            try Row.fetchAll(
+                db,
+                sql: """
+                SELECT s.* FROM sessions s
+                LEFT JOIN session_embeddings se ON se.session_id = s.id
+                WHERE se.session_id IS NULL
+                ORDER BY s.timestamp DESC
+                LIMIT ?
+                """,
+                arguments: [limit]
+            ).map(SessionRecord.init(row:))
+        }
+    }
+
+    func fetchAllEmbeddings() throws -> [(sessionID: Int64, embedding: Data, dimensions: Int)] {
+        try dbQueue.read { db in
+            try Row.fetchAll(
+                db,
+                sql: "SELECT session_id, embedding, dimensions FROM session_embeddings"
+            ).map { row in
+                (sessionID: row["session_id"], embedding: row["embedding"], dimensions: row["dimensions"])
+            }
+        }
+    }
+
+    // MARK: - Daily Snapshots
+
+    func saveDailySnapshot(_ snapshot: DailySnapshot) throws -> DailySnapshot {
+        var stored = snapshot
+        try dbQueue.write { db in
+            let dateStart = Calendar.current.startOfDay(for: stored.date).timeIntervalSince1970
+            // Upsert: update if snapshot for this date already exists
+            let existing = try Row.fetchOne(
+                db,
+                sql: "SELECT id FROM daily_snapshots WHERE date = ?",
+                arguments: [dateStart]
+            )
+            if let existingRow = existing {
+                let existingID: Int64 = existingRow["id"]
+                try db.execute(
+                    sql: """
+                    UPDATE daily_snapshots SET focus_score = ?, deep_work_minutes = ?, reactive_minutes = ?,
+                        context_switches = ?, top_app = ?, top_category = ?, session_count = ?, keystroke_count = ?
+                    WHERE id = ?
+                    """,
+                    arguments: [
+                        stored.focusScore, stored.deepWorkMinutes, stored.reactiveMinutes,
+                        stored.contextSwitches, stored.topApp, stored.topCategory,
+                        stored.sessionCount, stored.keystrokeCount, existingID
+                    ]
+                )
+                stored.id = existingID
+            } else {
+                try db.execute(
+                    sql: """
+                    INSERT INTO daily_snapshots (date, focus_score, deep_work_minutes, reactive_minutes,
+                        context_switches, top_app, top_category, session_count, keystroke_count)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    arguments: [
+                        dateStart,
+                        stored.focusScore, stored.deepWorkMinutes, stored.reactiveMinutes,
+                        stored.contextSwitches, stored.topApp, stored.topCategory,
+                        stored.sessionCount, stored.keystrokeCount
+                    ]
+                )
+                stored.id = db.lastInsertedRowID
+            }
+        }
+        return stored
+    }
+
+    func fetchDailySnapshots(limit: Int = 90) throws -> [DailySnapshot] {
+        try dbQueue.read { db in
+            try Row.fetchAll(
+                db,
+                sql: "SELECT * FROM daily_snapshots ORDER BY date DESC LIMIT ?",
+                arguments: [limit]
+            ).map(DailySnapshot.init(row:))
+        }
+    }
+
+    // MARK: - Anomaly Events
+
+    func saveAnomalyEvent(_ event: AnomalyEvent) throws -> AnomalyEvent {
+        var stored = event
+        try dbQueue.write { db in
+            try db.execute(
+                sql: """
+                INSERT INTO anomaly_events (timestamp, metric, value, baseline_mean, baseline_stddev, severity, message)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                arguments: [
+                    stored.timestamp.timeIntervalSince1970,
+                    stored.metric, stored.value,
+                    stored.baselineMean, stored.baselineStddev,
+                    stored.severity, stored.message
+                ]
+            )
+            stored.id = db.lastInsertedRowID
+        }
+        return stored
+    }
+
+    func fetchAnomalyEvents(limit: Int = 50) throws -> [AnomalyEvent] {
+        try dbQueue.read { db in
+            try Row.fetchAll(
+                db,
+                sql: "SELECT * FROM anomaly_events ORDER BY timestamp DESC LIMIT ?",
+                arguments: [limit]
+            ).map(AnomalyEvent.init(row:))
+        }
+    }
+
+    func fetchAnomalyEvents(since: Date) throws -> [AnomalyEvent] {
+        try dbQueue.read { db in
+            try Row.fetchAll(
+                db,
+                sql: "SELECT * FROM anomaly_events WHERE timestamp >= ? ORDER BY timestamp DESC",
+                arguments: [since.timeIntervalSince1970]
+            ).map(AnomalyEvent.init(row:))
         }
     }
 }
