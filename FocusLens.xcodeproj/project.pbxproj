@@ -19,6 +19,8 @@
 		1DC0085C4F5AFD134D0D8082 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = A58CFF4E40A0221168ECB78A /* GRDB */; };
 		2604892E1ECF4C90AE2A97F9 /* AppUsageChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = F440407F76728BA6C3300593 /* AppUsageChart.swift */; };
 		27B3976E6EE94D6747011889 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB4D8D4FC8A66F99FF6F216 /* DesignTokens.swift */; };
+		286169641A8381349ECBA6B4 /* ProjectRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B6C9F7E6B0B50C85379DCAB /* ProjectRecord.swift */; };
+		2FAA0AA49C7FDC5B54E44149 /* GeminiEmbeddingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0CD0AB1CEA1DFC76A944413 /* GeminiEmbeddingClient.swift */; };
 		350AA24A2DFA08DBA8020472 /* FocusLensApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82A7828086E2F67EF79C9BFC /* FocusLensApp.swift */; };
 		36279F4617E9864C73177329 /* AnalysisResponseFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D188D8BC0736B388348300C2 /* AnalysisResponseFormatter.swift */; };
 		3C04CF76AA3D5F70B529176E /* KeystrokeRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = E969511DFD32E489A3CA64AD /* KeystrokeRecord.swift */; };
@@ -57,6 +59,7 @@
 		E573ADAEF5842BEA28680F66 /* ImageHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7BAD479FA9C157D13B119AC /* ImageHelpers.swift */; };
 		E7AF8FC202108542B7989B39 /* ActivityExplorerWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 765AEE5628731550FE8119E0 /* ActivityExplorerWindow.swift */; };
 		EA702532150758A3694B4319 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB8B3AB765FA06BF48D372F5 /* PreferencesView.swift */; };
+		F7168981B5D16F57296A5EAE /* IntelligenceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38944317734C55DD0CFEF89C /* IntelligenceEngine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -67,6 +70,7 @@
 		2092B05946E81C8836F82998 /* HourlyHeatmap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HourlyHeatmap.swift; sourceTree = "<group>"; };
 		241DE53E08AD858F43D63818 /* ModelDefinition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDefinition.swift; sourceTree = "<group>"; };
 		2429B902AB165FC1BFDA7EDE /* FocusLens.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FocusLens.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		38944317734C55DD0CFEF89C /* IntelligenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntelligenceEngine.swift; sourceTree = "<group>"; };
 		38E6DBA2EC2F0FFCB90627DF /* StreamingResponseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingResponseView.swift; sourceTree = "<group>"; };
 		3BE3CA5C9385D09FEB045D73 /* SessionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCard.swift; sourceTree = "<group>"; };
 		3BE655E5652C4E740760FBEA /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
@@ -79,6 +83,7 @@
 		7CB473566E2EDCAB930D475C /* HourScrubber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HourScrubber.swift; sourceTree = "<group>"; };
 		82A7828086E2F67EF79C9BFC /* FocusLensApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusLensApp.swift; sourceTree = "<group>"; };
 		8A7684454D4CC6E50FF32024 /* AIAnalysisTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAnalysisTabView.swift; sourceTree = "<group>"; };
+		8B6C9F7E6B0B50C85379DCAB /* ProjectRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectRecord.swift; sourceTree = "<group>"; };
 		8CC7415CED481EDC14708EF4 /* SessionRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRecord.swift; sourceTree = "<group>"; };
 		93A41FE8193DBFEAE3C9B0E8 /* MenuBarPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPopover.swift; sourceTree = "<group>"; };
 		95CEC6711F5FAB697A81F0A7 /* QuickLookPreviewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickLookPreviewController.swift; sourceTree = "<group>"; };
@@ -87,6 +92,7 @@
 		A8DAD7C736D8423B7DA1D04E /* TimelineTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineTabView.swift; sourceTree = "<group>"; };
 		AAB4D8D4FC8A66F99FF6F216 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		B04BAC253E54885D2509B472 /* CaptureScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureScheduler.swift; sourceTree = "<group>"; };
+		B0CD0AB1CEA1DFC76A944413 /* GeminiEmbeddingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiEmbeddingClient.swift; sourceTree = "<group>"; };
 		B1876CE4BD89DE2D5D85CA1C /* ClassificationResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClassificationResult.swift; sourceTree = "<group>"; };
 		B342F81E57C628C27D809675 /* GanttView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GanttView.swift; sourceTree = "<group>"; };
 		B595603A6AB8F51AEA83BC25 /* AnalysisAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalysisAggregator.swift; sourceTree = "<group>"; };
@@ -245,6 +251,7 @@
 				DC0D52E0ED437B0E38803872 /* AnalysisRecord.swift */,
 				43AA01C232F865EE9FEB043F /* Database.swift */,
 				E969511DFD32E489A3CA64AD /* KeystrokeRecord.swift */,
+				8B6C9F7E6B0B50C85379DCAB /* ProjectRecord.swift */,
 				8CC7415CED481EDC14708EF4 /* SessionRecord.swift */,
 			);
 			path = Storage;
@@ -256,6 +263,8 @@
 				B595603A6AB8F51AEA83BC25 /* AnalysisAggregator.swift */,
 				D188D8BC0736B388348300C2 /* AnalysisResponseFormatter.swift */,
 				B1876CE4BD89DE2D5D85CA1C /* ClassificationResult.swift */,
+				B0CD0AB1CEA1DFC76A944413 /* GeminiEmbeddingClient.swift */,
+				38944317734C55DD0CFEF89C /* IntelligenceEngine.swift */,
 				6FE52FC608B461BB0B6AE843 /* LlamaCppClient.swift */,
 				241DE53E08AD858F43D63818 /* ModelDefinition.swift */,
 				19A058F730F3CD783432ABDC /* ModelDownloadManager.swift */,
@@ -394,11 +403,13 @@
 				350AA24A2DFA08DBA8020472 /* FocusLensApp.swift in Sources */,
 				9D99A9FD7D98593E3E120444 /* FocusScoreChart.swift in Sources */,
 				8084987BC83C17806AC3882A /* GanttView.swift in Sources */,
+				2FAA0AA49C7FDC5B54E44149 /* GeminiEmbeddingClient.swift in Sources */,
 				9300C287673B7CE7CF8ED115 /* GlobalSearchBar.swift in Sources */,
 				BEB4577803E1C35909AB5544 /* HourScrubber.swift in Sources */,
 				A882551CD9C13A47706EE5A4 /* HourlyHeatmap.swift in Sources */,
 				E573ADAEF5842BEA28680F66 /* ImageHelpers.swift in Sources */,
 				CCABDB1EBC095DEA10BC3308 /* InsightsTabView.swift in Sources */,
+				F7168981B5D16F57296A5EAE /* IntelligenceEngine.swift in Sources */,
 				046292DDBBF403CC505D7034 /* KeystrokeMonitor.swift in Sources */,
 				3C04CF76AA3D5F70B529176E /* KeystrokeRecord.swift in Sources */,
 				99428020F490F91723282CDB /* KeystrokesTabView.swift in Sources */,
@@ -411,6 +422,7 @@
 				84ADE170C06689F6426E9874 /* PerceptualHash.swift in Sources */,
 				EA702532150758A3694B4319 /* PreferencesView.swift in Sources */,
 				A60434EC79160A72D08433A9 /* PreferencesWindow.swift in Sources */,
+				286169641A8381349ECBA6B4 /* ProjectRecord.swift in Sources */,
 				172E1963BBC20E98B49B5817 /* QuickLookPreviewController.swift in Sources */,
 				5B3AABD7B32F09C6C80241E4 /* SavedAnalysesList.swift in Sources */,
 				C218B87E62B27E96C8DCDD60 /* ScreenCapture.swift in Sources */,
@@ -465,7 +477,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -484,7 +496,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.10.6;
+				MARKETING_VERSION = 1.11.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -550,7 +562,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -563,7 +575,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.10.6;
+				MARKETING_VERSION = 1.11.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alexgrama.FocusLens;

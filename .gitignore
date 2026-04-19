@@ -32,6 +32,7 @@ Package.resolved
 openspec/
 
 # Build artifacts
+build/
 *.dmg
 *.app
 *.zip
