@@ -80,7 +80,9 @@ final class AppState: ObservableObject {
     private var intelligenceTask: Task<Void, Never>?
     private var embeddingBackfillTask: Task<Void, Never>?
     private var lastScreenshotHash: UInt64?
-    private var hasVerifiedScreenCaptureAccess = false
+    private var hasVerifiedScreenCaptureAccess: Bool {
+        didSet { defaults.set(hasVerifiedScreenCaptureAccess, forKey: Keys.hasVerifiedScreenCaptureAccess) }
+    }
     private var sleepStartedAt: Date?
     private lazy var scheduler = CaptureScheduler(
         intervalProvider: { [weak self] in
@@ -117,6 +119,14 @@ final class AppState: ObservableObject {
         idleThresholdMinutes = defaults.object(forKey: Keys.idleThresholdMinutes) as? Int ?? 2
         journalDirectoryPath = defaults.string(forKey: Keys.journalDirectory) ?? "~/Documents/FocusLens/journals"
         autoJournalEnabled = defaults.object(forKey: Keys.autoJournalEnabled) as? Bool ?? false
+
+        // Restore persisted screen capture verification, or infer from existing sessions
+        let persisted = defaults.object(forKey: Keys.hasVerifiedScreenCaptureAccess) as? Bool ?? false
+        let hasExistingSessions = (try? self.database.fetchRecentSessions(limit: 1).isEmpty) == false
+        hasVerifiedScreenCaptureAccess = persisted || hasExistingSessions
+        if hasVerifiedScreenCaptureAccess {
+            screenPermissionGranted = true
+        }
 
         Task {
             await bootstrap()
@@ -1260,6 +1270,7 @@ final class AppState: ObservableObject {
         static let journalDirectory = "focuslens.journalDirectory"
         static let autoJournalEnabled = "focuslens.autoJournalEnabled"
         static let geminiAPIKey = "focuslens.geminiAPIKey"
+        static let hasVerifiedScreenCaptureAccess = "focuslens.hasVerifiedScreenCaptureAccess"
     }
 
     private static let geminiAPIKey: String = {
